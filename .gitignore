@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Virtual environment
+fraud_env/
+
+# Data - never commit raw data
+data/
+
+# Model artifacts
+outputs/models/
