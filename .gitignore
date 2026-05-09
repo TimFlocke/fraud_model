@@ -223,9 +223,5 @@ fraud_env/
 # Data - never commit raw data
 data/
 
-# Model artifacts
-outputs/models/
-
-# Data assets
-outputs/results/
-outputs/models/
+# artifacts
+outputs/
