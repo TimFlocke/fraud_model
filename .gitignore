@@ -225,3 +225,7 @@ data/
 
 # Model artifacts
 outputs/models/
+
+# Data assets
+outputs/results/
+outputs/models/
