@@ -195,3 +195,41 @@ def convert_datetime(df):
     df['hour_of_day'] = df['TransactionDT'].dt.hour
     df['day_of_week'] = df['TransactionDT'].dt.dayofweek
     return df
+
+
+def split_data(df, target):
+    """
+    Splits df into train, validation, and test sets using a chronological cutoff.
+
+    Rows are sorted by TransactionDT ascending before splitting to avoid data leakage.
+    Split proportions: 70% train, 15% val, 15% test.
+    TransactionID and TransactionDT are excluded from feature matrices.
+
+    Parameters:
+    - df: DataFrame containing all features, the target column, TransactionID, TransactionDT
+    - target: name of the target column
+
+    Returns:
+    - X_train, X_val, X_test, y_train, y_val, y_test
+    """
+    df = df.sort_values('TransactionDT').reset_index(drop=True)
+
+    n = len(df)
+    train_end = int(n * 0.70)
+    val_end = int(n * 0.85)
+
+    exclude = {target, 'TransactionID', 'TransactionDT'}
+    feature_cols = [c for c in df.columns if c not in exclude]
+
+    train = df.iloc[:train_end]
+    val = df.iloc[train_end:val_end]
+    test = df.iloc[val_end:]
+
+    X_train, y_train = train[feature_cols], train[target]
+    X_val,   y_val   = val[feature_cols],   val[target]
+    X_test,  y_test  = test[feature_cols],  test[target]
+
+    for name, X, y in [('train', X_train, y_train), ('val', X_val, y_val), ('test', X_test, y_test)]:
+        print(f'{name:<6} shape: {X.shape}  fraud rate: {y.mean():.4f}')
+
+    return X_train, X_val, X_test, y_train, y_val, y_test
