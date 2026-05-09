@@ -1,4 +1,118 @@
 import pandas as pd
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
+
+
+def build_aggregation_features(df):
+    """
+    Adds entity-level aggregation features using global statistics on time-sorted data.
+
+    Features are computed after sorting by TransactionDT ascending. Column naming
+    follows the pattern entity__target__agg.
+
+    Parameters:
+    - df: DataFrame with entity and transaction columns
+
+    Returns:
+    - df with aggregation feature columns added
+    """
+    # global statistics on time-sorted data; production would use only pre-transaction history
+    df = df.sort_values('TransactionDT').reset_index(drop=True)
+
+    entity_target_agg = [
+        ('card1', 'addr1', 'nunique'),
+        ('card1', 'P_emaildomain', 'nunique'),
+        ('card1', 'R_emaildomain', 'nunique'),
+        ('card1', 'TransactionAmt', 'mean'),
+        ('card1', 'TransactionAmt', 'std'),
+        ('card1', 'TransactionID', 'count'),
+        ('P_emaildomain', 'card1', 'nunique'),
+        ('P_emaildomain', 'addr1', 'nunique'),
+        ('P_emaildomain', 'R_emaildomain', 'nunique'),
+        ('P_emaildomain', 'TransactionAmt', 'mean'),
+        ('R_emaildomain', 'card1', 'nunique'),
+        ('R_emaildomain', 'addr1', 'nunique'),
+        ('R_emaildomain', 'P_emaildomain', 'nunique'),
+        ('R_emaildomain', 'TransactionAmt', 'mean'),
+        ('addr1', 'card1', 'nunique'),
+        ('addr1', 'P_emaildomain', 'nunique'),
+        ('addr1', 'R_emaildomain', 'nunique'),
+        ('addr1', 'TransactionAmt', 'mean'),
+        ('DeviceInfo', 'card1', 'nunique'),
+        ('DeviceInfo', 'P_emaildomain', 'nunique'),
+        ('DeviceInfo', 'addr1', 'nunique'),
+    ]
+
+    for entity, target, agg in entity_target_agg:
+        col_name = f'{entity}__{target}__{agg}'
+        if agg == 'nunique':
+            mapping = df.groupby(entity)[target].nunique()
+        elif agg == 'mean':
+            mapping = df.groupby(entity)[target].mean()
+        elif agg == 'std':
+            mapping = df.groupby(entity)[target].std()
+        elif agg == 'count':
+            mapping = df.groupby(entity)[target].count()
+        df[col_name] = df[entity].map(mapping)
+
+    return df
+
+
+def add_missingness_features(df):
+    """
+    Adds a binary flag indicating whether identity data is present for a transaction.
+
+    Parameters:
+    - df: DataFrame with DeviceType column from the merged identity table
+
+    Returns:
+    - df with has_identity column added
+    """
+    df = df.copy()
+    df['has_identity'] = df['DeviceType'].notna().astype(int)
+    return df
+
+
+def add_transformations(df):
+    """
+    Adds log-transformed versions of TransactionAmt and all aggregation feature columns.
+
+    Uses np.log1p to handle zero values safely. New columns are saved alongside originals
+    using the naming convention {col}_log.
+
+    Parameters:
+    - df: DataFrame with TransactionAmt and aggregation columns (names containing '__')
+
+    Returns:
+    - df with log-transformed columns added
+    """
+    df = df.copy()
+    df['TransactionAmt_log'] = np.log1p(df['TransactionAmt'])
+    for col in [c for c in df.columns if '__' in c]:
+        df[f'{col}_log'] = np.log1p(df[col])
+    return df
+
+
+def encode_categoricals(df, cat_cols):
+    """
+    Label-encodes categorical columns, storing results in new {col}_encoded columns.
+
+    Nulls are filled with the string 'missing' before encoding so the encoder does not
+    fail on NaN values. Original columns are not modified.
+
+    Parameters:
+    - df: DataFrame containing the columns to encode
+    - cat_cols: list of column names to encode
+
+    Returns:
+    - df with {col}_encoded columns added for each column in cat_cols
+    """
+    df = df.copy()
+    le = LabelEncoder()
+    for col in cat_cols:
+        filled = df[col].fillna('missing').astype(str)
+        df[f'{col}_encoded'] = le.fit_transform(filled)
+    return df
 
 
 def load_data(transaction_path, identity_path):
