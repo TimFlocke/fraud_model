@@ -44,13 +44,14 @@ def get_mult_roc(df, target, model_list, dataset_cols):
     plt.show()
 
 
-def display_mod_performance(y_test, preds):
+def display_mod_performance(y_test, preds, save_path=None):
     """
     Displays a confusion matrix heatmap and classification report for model predictions.
 
     Parameters:
     - y_test: True binary labels.
     - preds: Predicted binary labels from the classifier.
+    - save_path: Optional file path to save the confusion matrix figure before display.
     """
 
     # CONFUSION MATRIX VISUAL
@@ -63,6 +64,8 @@ def display_mod_performance(y_test, preds):
     ## LABELS
     ax.xaxis.set_ticklabels(['False','True'])
     ax.yaxis.set_ticklabels(['False','True'])
+    if save_path is not None:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.show()
 
     # CLASSIFICATION REPORT

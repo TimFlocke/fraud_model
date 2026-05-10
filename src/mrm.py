@@ -4,7 +4,7 @@ import pandas as pd
 from pathlib import Path
 
 
-def get_gains(df, target, score, top_n):
+def get_gains(df, target, score, top_n, save_path=None):
     """
     Computes and plots a gains chart showing the percentage of fraud captured
     at each score threshold.
@@ -14,6 +14,7 @@ def get_gains(df, target, score, top_n):
     - target: Column name of the binary fraud label.
     - score: Column name of the predicted probability score.
     - top_n: Fraction (0–1) of top-scored events to mark with a threshold line.
+    - save_path: Optional file path to save the gains chart figure.
 
     Returns:
     - Single-row DataFrame with threshold, pct_flagged, n_fraud_cap, and fraud_pct_cap
@@ -52,10 +53,13 @@ def get_gains(df, target, score, top_n):
     ax.set_ylabel('% Frauds Captured')
     ax.legend()
 
-    out_path = Path('outputs/plots/gains_chart.png')
-    out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
-    fig.savefig(out_path)
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches='tight')
+    else:
+        out_path = Path('outputs/plots/gains_chart.png')
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(out_path)
     plt.show()
     plt.close()
 
