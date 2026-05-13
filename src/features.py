@@ -233,3 +233,17 @@ def split_data(df, target):
         print(f'{name:<6} shape: {X.shape}  fraud rate: {y.mean():.4f}')
 
     return X_train, X_val, X_test, y_train, y_val, y_test
+
+
+def drop_object_cols(df):
+    """
+    drops original string/object columns where an encoded
+    version exists. keeps col_encoded, drops col.
+    """
+    cols_to_drop = [
+        c for c in df.select_dtypes(include='object').columns
+        if f'{c}_encoded' in df.columns
+    ]
+    print(f'dropping {len(cols_to_drop)} original string columns')
+    print(cols_to_drop)
+    return df.drop(columns=cols_to_drop)

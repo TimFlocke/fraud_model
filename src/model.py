@@ -14,7 +14,7 @@ def train_baseline(X_train, y_train):
     - fitted DecisionTreeClassifier
     """
     model = DecisionTreeClassifier(
-        max_depth=5,
+        max_depth=10,
         random_state=config.RANDOM_STATE,
         class_weight='balanced',
     )

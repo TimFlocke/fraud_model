@@ -68,30 +68,34 @@ def get_gains(df, target, score, top_n, save_path=None):
 
 def score_deciles(df, uid, score, target):
     """
-    Segments model scores into deciles and reports fraud capture statistics per decile.
+    segments model scores into deciles and reports fraud capture
+    statistics per decile. decile 1 = highest score (highest risk).
 
-    Parameters:
-    - df: DataFrame containing uid, score, and target columns.
-    - uid: Column name for the unique event identifier (used for count).
-    - score: Column name of the predicted probability score.
-    - target: Column name of the binary fraud label.
+    parameters:
+    - df: dataframe containing uid, score, and target columns
+    - uid: column name for unique event identifier (used for count)
+    - score: column name of predicted probability score
+    - target: column name of binary fraud label
 
-    Returns:
-    - DataFrame with decile-level counts, score threshold, fraud counts,
-      cumulative fraud count, and cumulative fraud capture rate.
+    returns:
+    - dataframe with decile-level counts, score threshold,
+      fraud counts, cumulative fraud count, and capture rate
     """
-
     d = df.copy()
     d = d.sort_values(score, ascending=False).reset_index(drop=True)
-    d['decile'] = pd.qcut(d[score], 10, labels=False,
-                        #   duplicates='drop'
-                          )
 
-    rpt = d.groupby('decile').agg({uid: 'count', score: 'min', target: 'sum'})
-    rpt['fraud_cm'] = rpt[target].cumsum()
+    # assign deciles by row position — avoids qcut duplicate bin issue
+    d['decile'] = pd.qcut(d.index, 10, labels=False) + 1
+
+    rpt = d.groupby('decile').agg(
+        n_events=(uid, 'count'),
+        score_thresh=(score, 'min'),
+        n_frauds=(target, 'sum')
+    )
+    rpt.columns = ['n_events', f'{score}_thresh', 'n_frauds']
+    rpt['fraud_cm'] = rpt['n_frauds'].cumsum()
     rpt['fraud_pct_cap'] = rpt['fraud_cm'] / d[target].sum()
-    rpt.columns = ['n_events', f'{score}_thresh', 'n_frauds', 'fraud_cm', 'fraud_pct_cap']
 
-    print("% Frauds captured in upper decile:", rpt.loc[9]['n_frauds']/d[target].sum())
+    print(f'% frauds captured in top decile: {rpt.iloc[0]["n_frauds"] / d[target].sum():.4f}')
 
     return rpt
