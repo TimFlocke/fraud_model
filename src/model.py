@@ -154,32 +154,110 @@ def train_lightgbm(X_train, y_train, X_val, y_val):
 
     return booster
 
-# def train_lightgbm(X_train, y_train, X_val, y_val):
-#     """
-#     trains a lightgbm classifier with early stopping.
-#     scale_pos_weight handles class imbalance explicitly.
-#     """
-#     from lightgbm import LGBMClassifier, early_stopping, log_evaluation
+def train_catboost_final(X_train, y_train, X_val, y_val, cat_features, params):
+    """
+    Trains a CatBoostClassifier using tuned hyperparameters from Optuna.
 
-#     scale_pos_weight = y_train.value_counts()[0] / y_train.value_counts()[1]
+    Merges caller-supplied params with fixed operational settings
+    (eval_metric, random_seed, verbose, early_stopping_rounds) so that
+    the training run is reproducible and self-evaluating on the val set.
 
-#     model = LGBMClassifier(
-#         n_estimators=1000,
-#         learning_rate=0.05,
-#         max_depth=6,
-#         num_leaves=31,
-#         min_child_samples=20,
-#         scale_pos_weight=scale_pos_weight,
-#         random_state=config.RANDOM_STATE,
-#         verbosity=-1
-#     )
+    Parameters:
+    - X_train: training feature DataFrame
+    - y_train: training binary target Series
+    - X_val: validation feature DataFrame
+    - y_val: validation binary target Series
+    - cat_features: list of column names to treat as categorical
+    - params: dict of tuned hyperparameters (from best_params_catboost.json)
 
-#     model.fit(
-#         X_train, y_train,
-#         eval_set=[(X_val, y_val)],
-#         eval_metric = 'auc',
-#         callbacks=[early_stopping(50, verbose=False),
-#                    log_evaluation(100)]
-#     )
+    Returns:
+    - fitted CatBoostClassifier at best iteration
+    """
+    from catboost import CatBoostClassifier
 
-#     return model
+    fixed = {
+        'eval_metric': 'AUC',
+        'random_seed': config.RANDOM_STATE,
+        'verbose': 100,
+        'early_stopping_rounds': 50,
+    }
+    model = CatBoostClassifier(**{**params, **fixed})
+    model.fit(X_train, y_train, eval_set=(X_val, y_val), cat_features=cat_features)
+    return model
+
+
+def train_xgboost_final(X_train, y_train, X_val, y_val, params):
+    """
+    Trains an XGBClassifier using tuned hyperparameters from Optuna.
+
+    Merges caller-supplied params with fixed operational settings
+    (eval_metric, random_state, early_stopping_rounds, scale_pos_weight).
+    scale_pos_weight is recomputed from y_train to handle class imbalance.
+
+    Parameters:
+    - X_train: training feature DataFrame
+    - y_train: training binary target Series
+    - X_val: validation feature DataFrame
+    - y_val: validation binary target Series
+    - params: dict of tuned hyperparameters (from best_params_xgboost.json)
+
+    Returns:
+    - fitted XGBClassifier at best iteration
+    """
+    from xgboost import XGBClassifier
+
+    scale_pos_weight = float((y_train == 0).sum()) / float((y_train == 1).sum())
+    fixed = {
+        'eval_metric': 'auc',
+        'random_state': config.RANDOM_STATE,
+        'early_stopping_rounds': 50,
+        'scale_pos_weight': scale_pos_weight,
+    }
+    model = XGBClassifier(**{**params, **fixed})
+    model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
+    return model
+
+
+def train_lightgbm_final(X_train, y_train, X_val, y_val, params):
+    """
+    Trains a LightGBM booster using tuned hyperparameters from Optuna.
+
+    Uses the native lgb.train API. Merges caller-supplied params with fixed
+    operational settings (objective, metric, scale_pos_weight,
+    feature_pre_filter, verbosity). num_boost_round is popped from params
+    before passing to lgb.train since it is a separate argument.
+
+    Parameters:
+    - X_train: training feature DataFrame
+    - y_train: training binary target Series
+    - X_val: validation feature DataFrame
+    - y_val: validation binary target Series
+    - params: dict of tuned hyperparameters (from best_params_lightgbm.json)
+
+    Returns:
+    - native LightGBM Booster at best iteration
+    """
+    import lightgbm as lgb
+
+    scale_pos_weight = float((y_train == 0).sum()) / float((y_train == 1).sum())
+    fixed = {
+        'objective': 'binary',
+        'metric': 'auc',
+        'scale_pos_weight': scale_pos_weight,
+        'feature_pre_filter': False,
+        'verbosity': -1,
+    }
+    merged = {**params, **fixed}
+    num_boost_round = int(merged.pop('num_boost_round', 1000))
+
+    dtrain = lgb.Dataset(X_train, label=y_train)
+    dval = lgb.Dataset(X_val, label=y_val, reference=dtrain)
+
+    booster = lgb.train(
+        merged,
+        dtrain,
+        num_boost_round=num_boost_round,
+        valid_sets=[dval],
+        callbacks=[lgb.early_stopping(50, verbose=False), lgb.log_evaluation(100)],
+    )
+    return booster
