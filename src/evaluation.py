@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 from builtins import round
 from sklearn import metrics
@@ -133,3 +134,103 @@ def evaluate_performance(df, score_field, y, threshold=0.8):
         'MCC': round(mcc, 5),
         'Gini': round(gini, 5)
     }
+
+
+def plot_roc_comparison(model_scores, y_true, output_path):
+    """
+    Plots ROC curves for multiple models on a single chart.
+
+    Parameters:
+    - model_scores: dict of {model_name: proba_array}
+    - y_true: true binary labels (array-like)
+    - output_path: file path to save the figure
+
+    Returns:
+    - None
+    """
+    colors = plt.cm.tab10(np.linspace(0, 0.9, len(model_scores)))
+    fig, ax = plt.subplots(figsize=(7, 6))
+
+    for (name, proba), color in zip(model_scores.items(), colors):
+        fpr, tpr, _ = metrics.roc_curve(y_true, proba)
+        auc = metrics.roc_auc_score(y_true, proba)
+        ax.plot(fpr, tpr, label=f'{name}  auc={auc:.3f}', color=color)
+
+    ax.plot([0, 1], [0, 1], linestyle='--', color='grey', label='random baseline')
+    ax.set_xlabel('false positive rate')
+    ax.set_ylabel('true positive rate')
+    ax.set_title('ROC Curve Comparison')
+    ax.legend(fontsize=7, loc='lower right')
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.show()
+    plt.close()
+
+
+def plot_gains_comparison(model_scores, y_true, output_path):
+    """
+    Plots gains curves for multiple models on a single chart.
+
+    Gains curve shows the percentage of fraud captured as a function of
+    the percentage of transactions flagged, when scored by each model.
+    A vertical red dashed line marks the top 10% threshold.
+
+    Parameters:
+    - model_scores: dict of {model_name: proba_array}
+    - y_true: true binary labels (array-like)
+    - output_path: file path to save the figure
+
+    Returns:
+    - None
+    """
+    y_arr = np.array(y_true)
+    colors = plt.cm.tab10(np.linspace(0, 0.9, len(model_scores)))
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    for (name, proba), color in zip(model_scores.items(), colors):
+        order = np.argsort(-np.array(proba))
+        sorted_labels = y_arr[order]
+        cum_fraud_pct = np.cumsum(sorted_labels) / sorted_labels.sum() * 100
+        pct_flagged = np.arange(1, len(y_arr) + 1) / len(y_arr) * 100
+        ax.plot(pct_flagged, cum_fraud_pct, label=name, color=color)
+
+    ax.plot([0, 100], [0, 100], linestyle='--', color='grey', label='random baseline')
+    ax.axvline(x=10, linestyle='--', color='red', label='top 10%')
+    ax.set_xlabel('% events flagged')
+    ax.set_ylabel('% frauds captured')
+    ax.set_title('Gains Curve Comparison')
+    ax.legend(fontsize=7, loc='lower right')
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.show()
+    plt.close()
+
+
+def plot_pr_comparison(model_scores, y_true, output_path):
+    """
+    Plots precision-recall curves for multiple models on a single chart.
+
+    Parameters:
+    - model_scores: dict of {model_name: proba_array}
+    - y_true: true binary labels (array-like)
+    - output_path: file path to save the figure
+
+    Returns:
+    - None
+    """
+    colors = plt.cm.tab10(np.linspace(0, 0.9, len(model_scores)))
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    for (name, proba), color in zip(model_scores.items(), colors):
+        precision, recall, _ = precision_recall_curve(y_true, proba)
+        pr_auc = average_precision_score(y_true, proba)
+        ax.plot(recall, precision, label=f'{name}  pr_auc={pr_auc:.3f}', color=color)
+
+    ax.set_xlabel('recall')
+    ax.set_ylabel('precision')
+    ax.set_title('Precision-Recall Curve Comparison')
+    ax.legend(fontsize=7, loc='upper right')
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.show()
+    plt.close()
