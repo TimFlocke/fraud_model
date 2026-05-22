@@ -2,6 +2,8 @@ import numpy as np
 import optuna
 from sklearn.metrics import roc_auc_score
 
+from config import get_device
+
 
 def tune_catboost(X_train, y_train, X_val, y_val, n_trials=20):
     """
@@ -39,6 +41,7 @@ def tune_catboost(X_train, y_train, X_val, y_val, n_trials=20):
             'eval_metric': 'AUC',
             'early_stopping_rounds': 50,
             'verbose': 0,
+            'task_type': 'GPU' if get_device() == 'gpu' else 'CPU',
         }
         model = CatBoostClassifier(**params)
         model.fit(X_train, y_train, eval_set=(X_val, y_val))
@@ -93,6 +96,8 @@ def tune_xgboost(X_train, y_train, X_val, y_val, n_trials=20):
             'early_stopping_rounds': 50,
             'scale_pos_weight': scale_pos_weight,
             'verbosity': 0,
+            'device': 'cuda' if get_device() == 'gpu' else 'cpu',
+            'tree_method': 'hist',
         }
         model = XGBClassifier(**params)
         model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
@@ -155,6 +160,7 @@ def tune_lightgbm(X_train, y_train, X_val, y_val, n_trials=20):
             'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
             'scale_pos_weight': scale_pos_weight,
             'verbosity': -1,
+            'device': 'gpu' if get_device() == 'gpu' else 'cpu',
         }
         callbacks = [lgb.early_stopping(50, verbose=False), lgb.log_evaluation(-1)]
         booster = lgb.train(

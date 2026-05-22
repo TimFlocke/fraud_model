@@ -1,4 +1,5 @@
 import config
+from config import get_device
 from sklearn.metrics import (
     average_precision_score,
     precision_recall_fscore_support,
@@ -81,6 +82,7 @@ def train_catboost(X_train, y_train, X_val, y_val, cat_features):
         random_seed=config.RANDOM_STATE,
         verbose=100,
         early_stopping_rounds=50,
+        task_type='GPU' if get_device() == 'gpu' else 'CPU',
     )
     model.fit(X_train, y_train, eval_set=(X_val, y_val), cat_features=cat_features)
     return model
@@ -112,6 +114,8 @@ def train_xgboost(X_train, y_train, X_val, y_val):
         random_state=config.RANDOM_STATE,
         early_stopping_rounds=50,
         scale_pos_weight=scale_pos_weight,
+        device='cuda' if get_device() == 'gpu' else 'cpu',
+        tree_method='hist',
     )
     model.fit(X_train, y_train, eval_set=[(X_val, y_val)])
     return model
@@ -133,7 +137,8 @@ def train_lightgbm(X_train, y_train, X_val, y_val):
         'min_child_samples': 50,
         'scale_pos_weight': scale_pos_weight,
         'random_state': config.RANDOM_STATE,
-        'verbosity': -1
+        'verbosity': -1,
+        'device': 'gpu' if get_device() == 'gpu' else 'cpu',
     }
 
     dtrain = lgb.Dataset(X_train, label=y_train)
@@ -180,6 +185,7 @@ def train_catboost_final(X_train, y_train, X_val, y_val, cat_features, params):
         'random_seed': config.RANDOM_STATE,
         'verbose': 100,
         'early_stopping_rounds': 50,
+        'task_type': 'GPU' if get_device() == 'gpu' else 'CPU',
     }
     model = CatBoostClassifier(**{**params, **fixed})
     model.fit(X_train, y_train, eval_set=(X_val, y_val), cat_features=cat_features)
@@ -212,6 +218,8 @@ def train_xgboost_final(X_train, y_train, X_val, y_val, params):
         'random_state': config.RANDOM_STATE,
         'early_stopping_rounds': 50,
         'scale_pos_weight': scale_pos_weight,
+        'device': 'cuda' if get_device() == 'gpu' else 'cpu',
+        'tree_method': 'hist',
     }
     model = XGBClassifier(**{**params, **fixed})
     model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
@@ -246,6 +254,7 @@ def train_lightgbm_final(X_train, y_train, X_val, y_val, params):
         'scale_pos_weight': scale_pos_weight,
         'feature_pre_filter': False,
         'verbosity': -1,
+        'device': 'gpu' if get_device() == 'gpu' else 'cpu',
     }
     merged = {**params, **fixed}
     num_boost_round = int(merged.pop('num_boost_round', 1000))
