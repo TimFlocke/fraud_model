@@ -26,7 +26,6 @@ This is intended to be a re-usable pipeline for fraud modeling. There are 13 sta
 ![Precision-Recall Curve comparison](assets/pr_curves_comparison_final.png)
 ![Best model: gains chart](assets/best_model_test_gains.png)
 
-
 ---
 
 ## pipeline
