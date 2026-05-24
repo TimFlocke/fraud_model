@@ -288,7 +288,7 @@ fraud_model/
 
 ---
 
-## git workflow (ongoing)
+## git workflow
 
 after completing each stage:
 
