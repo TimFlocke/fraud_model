@@ -469,3 +469,137 @@ shap summary plot, waterfall plot, bar plot for best model.
 ## stage 13 — fraud rules (coming soon)
 
 model-derived rules from shap + analytical rules from eda.
+
+---
+
+## stage 10 — evaluation
+
+```
+populate notebooks/10_evaluation.ipynb
+add plot_roc_comparison, plot_gains_comparison,
+plot_pr_comparison to src/evaluation.py
+
+load all seven models — note lightgbm models are
+native boosters using booster.predict() not predict_proba()
+
+first time test set is used — document this in markdown
+
+sections:
+1 - imports
+2 - load data and all models, compute ensemble weights
+    from experiment log
+3 - generate test predictions for all eight models
+    (7 individual + ensemble)
+4 - master comparison table sorted by AUC
+5 - roc curve comparison all models
+6 - gains curve comparison all models
+7 - pr curve comparison all models
+8 - best model deep dive: confusion matrix, decile table,
+    gains chart
+9 - full experiment log + auc progression line chart
+10 - final recommendation markdown
+```
+
+---
+
+## stage 11 — mrm
+
+```
+populate notebooks/11_mrm.ipynb
+add to src/mrm.py:
+- compute_ks(y_true, y_proba)
+- plot_ks_curve(y_true, y_proba, model_name, output_path)
+- compute_psi(expected, actual, bins=10)
+- plot_psi_distributions(expected, actual, labels, output_path)
+- fit_uniform_score(train_proba) -- returns train_sorted array
+- apply_uniform_score(proba, train_sorted, scale=1000)
+
+score transformation: rank-based uniform 0-1000 scale
+fitted on training distribution, applied to val and test.
+train_sorted saved to outputs/results/train_sorted.npy
+for production reuse.
+
+key results:
+- ks statistic: 65+ (exceptional)
+- score psi train vs test: 0.006 (stable)
+
+FILE PATH RULES (apply to all stages):
+- parquet files: config.RESULTS_PATH
+- model pkl files: config.OUTPUT_PATH / 'models'
+- plots: config.PLOTS_PATH
+- always joblib.load() for pkl files
+- experiment log column is 'model' not 'model_name'
+```
+
+---
+
+## stage 12 — explainability
+
+```
+populate notebooks/12_explainability.ipynb
+populate src/explainability.py with:
+- get_shap_values(models, weights, X, sample_n=2000)
+  computes weighted ensemble shap values across all three models
+  handles catboost list return (take index 1)
+  returns weighted shap_values, X_sample, explainers dict
+- plot_shap_summary(shap_values, X_sample, output_path)
+- plot_shap_bar(shap_values, X_sample, output_path)
+- plot_shap_waterfall(explainer, X_sample, idx, output_path)
+- plot_shap_dependence(shap_values, X_sample, feature, output_path)
+
+use weighted ensemble shap not single model shap --
+consistent with ensemble used in mrm and evaluation.
+weights from experiment log val_auc normalized to sum to 1.
+
+save shap_importance.parquet to config.RESULTS_PATH
+for use in stage 13 dynamic feature selection.
+
+waterfall plots use xgboost explainer from explainers dict.
+all shap plots use matplotlib=True mode.
+```
+
+---
+
+## stage 13 — decision strategy
+
+```
+populate notebooks/13_fraud_rules.ipynb
+populate src/rules.py with:
+- assign_score_based_decisions(df, score_col,
+    approve_threshold, decline_threshold)
+  uses config.STRATEGY_APPROVE_THRESHOLD
+  uses config.STRATEGY_DECLINE_THRESHOLD
+- get_shap_top_feature(shap_values, feature_names, lookup)
+- build_feature_lookup(feature_names)
+  dynamically generates plain english descriptions
+  from naming conventions -- no hardcoding
+- evaluate_decisions(df, target, decision_col)
+- plot_decision_summary(eval_df, output_path)
+- plot_score_distribution_by_decision(df, score_col,
+    decision_col, target, output_path)
+- plot_shap_by_decision(shap_values, X_sample,
+    decisions, output_path)
+
+config.py constants:
+STRATEGY_APPROVE_THRESHOLD = 400
+STRATEGY_DECLINE_THRESHOLD = 700
+STRATEGY_DECLINE_THRESHOLD = 0.65  (precision)
+STRATEGY_STEPUP_THRESHOLD = 0.25   (precision)
+RULES_TOP_N_FEATURES = 10
+
+score transformation: load train_sorted.npy,
+apply apply_uniform_score() from src/mrm.py
+
+shap explanations computed on 2000 row sample.
+primary driver = feature with highest absolute shap value.
+build_feature_lookup() parses naming conventions dynamically
+-- works on any dataset following pipeline conventions.
+
+decision tiers:
+APPROVE:  score <= STRATEGY_APPROVE_THRESHOLD
+STEP-UP:  score between thresholds
+DECLINE:  score > STRATEGY_DECLINE_THRESHOLD
+
+threshold sensitivity analysis at three configurations:
+conservative, default, aggressive.
+```

@@ -44,7 +44,7 @@ graph construction notebook and README documentation.
 
 **rationale:** notebooks import from src/, call functions, display results.
 all logic lives in reusable, importable, testable src/ files. this pattern
-signals production ml awareness to a hiring manager.
+signals production ml awareness.
 
 ---
 
@@ -273,3 +273,138 @@ with fraud rate filter produces a readable 200-400 node subgraph.
 node color = fraud rate, size = degree, edge thickness = transaction amount.
 this visual is the single best illustration of why graph features
 add value that tabular models miss.
+
+---
+
+## score transformation
+
+**decision:** rank-based uniform transformation to 0-1000 scale
+fitted on training distribution
+
+**rationale:** raw probabilities cluster near 0 due to 3.5% fraud
+base rate. a score of 0.23 being "high risk" is operationally
+unintuitive. uniform transformation maps scores so that 800
+always means "riskier than 80% of training transactions."
+train_sorted array saved to disk for production reuse — new
+transactions scored against the training distribution without
+retraining.
+
+---
+
+## ensemble construction
+
+**decision:** weighted average of three final models,
+weights proportional to normalized val AUC
+
+**weights:**
+- catboost_final: ~0.332
+- xgboost_final:  ~0.334
+- lightgbm_final: ~0.332
+
+models were nearly equal in AUC so weights are close to uniform.
+on different datasets with larger AUC gaps the dominant model
+will receive significantly higher weight.
+
+---
+
+## shap explainability — ensemble not single model
+
+**decision:** compute weighted ensemble SHAP values across all
+three models, not single model SHAP
+
+**rationale:** the ensemble is what scores transactions in
+production. explaining XGBoost alone means explaining a model
+that isn't making the final decision. weighted SHAP is more
+correct and consistent with the MRM and evaluation sections.
+
+**implementation:** TreeExplainer per model, weighted average
+of SHAP values using same weights as ensemble score.
+CatBoost returns a list for binary classification — take index 1.
+
+---
+
+## graph features eliminated by feature selection
+
+**decision:** accept graph feature elimination, document finding
+
+**finding:** 28 graph features reduced to 3 after variance
+threshold, then 0 after correlation filter. aggregation features
+capture equivalent linkage signal more directly. graph metrics
+add limited incremental value over well-engineered tabular
+aggregations on this dataset.
+
+**note:** in datasets with richer entity identifiers (full email,
+IP address, phone number) graph features would likely survive
+selection. the methodology is correct — only the entity
+granularity limits the signal here.
+
+---
+
+## decision strategy approach
+
+**decision:** score-based decision tiers with SHAP explanations.
+removed decision tree rule extraction.
+
+**alternatives considered:**
+- decision tree rule extraction — rejected. tree splits
+  dominated by ensemble_score leaving no role for behavioral
+  features. also circular — if you have the score you don't
+  need the rules.
+- individual model scores as tree features — rejected.
+  not used in production. ensemble abstracts away model
+  disagreements into one authoritative score.
+- hardcoded fraud rules — rejected. not agentic. breaks
+  on new datasets.
+
+**rationale:** score determines the tier. SHAP explains why.
+together they provide the complete operational picture without
+the circular logic of rule-based systems built on top of a
+model score.
+
+**thresholds:** configurable in config.py via
+STRATEGY_APPROVE_THRESHOLD and STRATEGY_DECLINE_THRESHOLD.
+fraud teams calibrate based on review capacity and risk appetite.
+
+---
+
+## build_feature_lookup — dynamic not hardcoded
+
+**decision:** parse feature names programmatically using
+naming conventions enforced by the pipeline
+
+**rationale:** hardcoded lookups break on new datasets.
+dynamic parsing works on any dataset where the pipeline
+naming conventions are followed:
+- entity__target__agg → aggregation description
+- col_log → log transformed description
+- col_encoded → category description
+- known fields → specific descriptions
+- fallback → cleaned raw name
+
+optional override file (feature_descriptions.json) allows
+dataset-specific descriptions without modifying code.
+
+---
+
+## gpu detection
+
+**decision:** auto-detect nvidia gpu, fall back to cpu
+
+**rationale:** hardcoding gpu params breaks the agent on
+machines without nvidia gpu. get_device() in config.py
+checks nvidia-smi and returns 'gpu' or 'cpu'. all train
+functions use this to set device params automatically.
+fully agentic — works on any machine.
+
+---
+
+## mrm — score psi vs feature psi
+
+**finding:** 9 features showed PSI > 0.2 between train and test
+but score PSI was 0.006 (stable).
+
+**interpretation:** feature-level drift in timedelta and sparse
+identity fields did not materially impact model output.
+score PSI is the primary MRM stability metric. feature PSI
+is diagnostic — it explains potential sources of future drift
+but does not indicate current model instability.

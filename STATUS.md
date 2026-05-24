@@ -2,7 +2,8 @@
 
 End-to-end fraud detection pipeline using the IEEE-CIS dataset.
 Demonstrates feature engineering, graph-based network features,
-multi-model comparison, model risk management, and fraud rules.
+multi-model comparison, model risk management, explainability,
+and an operationalized decision strategy.
 
 ---
 
@@ -14,15 +15,15 @@ multi-model comparison, model risk management, and fraud rules.
 | 02 | exploratory data analysis | complete |
 | 03 | feature engineering | complete |
 | 04 | train / val / test split | complete |
-| 05 | baseline model | in progress |
-| 06 | model training — catboost, xgboost, lightgbm | not started |
-| 07 | feature selection | not started |
-| 08 | hyperparameter tuning | not started |
-| 09 | final training | not started |
-| 10 | evaluation | not started |
-| 11 | model risk management — ks, psi | not started |
-| 12 | explainability — shap | not started |
-| 13 | fraud rules | not started |
+| 05 | baseline model | complete |
+| 06 | model training — catboost, xgboost, lightgbm | complete |
+| 07 | feature selection | complete |
+| 08 | hyperparameter tuning — optuna 50 trials | complete |
+| 09 | final training + weighted ensemble | complete |
+| 10 | evaluation — full model comparison | complete |
+| 11 | model risk management — ks, psi | complete |
+| 12 | explainability — ensemble shap | complete |
+| 13 | decision strategy — score based with shap explanations | complete |
 
 ---
 
@@ -35,6 +36,7 @@ multi-model comparison, model risk management, and fraud rules.
 | data_clean.parquet | merged, cleaned | 590,540 | 340 |
 | data_features.parquet | full enriched feature set | 590,540 | 457 |
 | features.parquet | engineered features only | 590,540 | 117 |
+| X_train/val/test_selected.parquet | selected feature splits | varies | 115 |
 
 ---
 
@@ -64,10 +66,14 @@ time-based split prevents data leakage from time-ordered features.
 | graph — degree centrality | 7 | degree centrality per entity |
 | graph — component size | 7 | connected component size per entity |
 | missingness | 1 | has_identity flag |
-| **total** | **457** | |
+| **total engineered** | **457** | |
+| **selected for modeling** | **115** | survived multi-method feature selection |
 
 entity columns used for graph:
 card1, card2, P_emaildomain, R_emaildomain, addr1, addr2, DeviceInfo
+
+note: graph features (28 columns) eliminated at variance threshold step.
+aggregation features capture equivalent linkage signal more directly.
 
 ---
 
@@ -85,19 +91,60 @@ relative trigger rate highlights:
 - is_discover ix=230 — discover card 2x+ baseline fraud rate
 - M columns all negative — verification matches are protective
 
+top shap features (ensemble):
+- C13 — number of linked accounts on card
+- C1 — number of addresses associated with card
+- D15, D1 — timedelta features
+- TransactionAmt — transaction amount
+- card1__R_emaildomain__nunique — aggregation feature
+- card1__TransactionAmt__mean — aggregation feature
+
 ---
 
-## models
+## model results
 
-| model | val auc | val ks | status |
-|---|---|---|---|
-| baseline — decision tree (depth=5) | tbd | tbd | in progress |
-| catboost | tbd | tbd | not started |
-| xgboost | tbd | tbd | not started |
-| lightgbm | tbd | tbd | not started |
-| catboost (tuned, selected features) | tbd | tbd | not started |
-| xgboost (tuned, selected features) | tbd | tbd | not started |
-| lightgbm (tuned, selected features) | tbd | tbd | not started |
+| model | features | params | val auc | val gini |
+|---|---|---|---|---|
+| baseline decision tree (depth=10) | full | default | 0.806 | 0.612 |
+| catboost | full | default | 0.906 | 0.812 |
+| xgboost | full | default | 0.915 | 0.830 |
+| lightgbm | full | default | 0.914 | 0.829 |
+| catboost final | selected | tuned 50 trials | 0.918 | 0.836 |
+| xgboost final | selected | tuned 50 trials | 0.923 | 0.846 |
+| lightgbm final | selected | tuned 50 trials | 0.916 | 0.832 |
+| **ensemble weighted** | selected | tuned | **0.925** | **0.849** |
+
+tuning: optuna bayesian optimization, 50 trials per model
+best single model: xgboost final — val auc 0.9253
+
+---
+
+## mrm results
+
+| metric | value | assessment |
+|---|---|---|
+| ks statistic (ensemble, test) | 65+ | exceptional |
+| score psi train vs test | 0.006 | stable |
+| feature psi > 0.2 | 9 features | monitor |
+
+score psi of 0.006 confirms model output distribution is stable
+despite minor feature-level drift in timedelta and sparse identity fields.
+
+---
+
+## decision strategy
+
+score transformed to 0-1000 uniform scale fitted on training distribution.
+thresholds configurable in config.py.
+
+| tier | threshold | precision | pct transactions | pct fraud captured |
+|---|---|---|---|---|
+| decline | score > 700 | 0.145 | 19.8% | 82.4% |
+| step-up | 400 < score <= 700 | 0.016 | 28.4% | 12.8% |
+| approve | score <= 400 | 0.003 | 51.8% | 4.8% |
+
+shap explanations identify primary fraud driver per transaction
+for analyst queue and audit trail.
 
 ---
 
@@ -105,6 +152,8 @@ relative trigger rate highlights:
 
 - python 3.13
 - virtual environment: fraud_env
+- gpu: nvidia geforce rtx 3050 (cuda 13.0)
+  gpu detection auto-configures training — falls back to cpu
 - key libraries: catboost, xgboost, lightgbm, shap, optuna,
   networkx, scikit-learn, pandas, numpy, matplotlib, seaborn
 
@@ -124,6 +173,10 @@ fraud_model/
 ├── mod_funcs.py
 ├── assets/               <- key plots for README
 ├── data/                 <- gitignored, download instructions in README
+├── docs/
+│   ├── project_decisions.md
+│   ├── stage_specs.md
+│   └── stage7_feature_selection_plan.md
 ├── src/
 │   ├── utils.py
 │   ├── features.py
@@ -134,6 +187,7 @@ fraud_model/
 │   ├── evaluation.py
 │   ├── mrm.py
 │   ├── explainability.py
+│   ├── experiment.py
 │   └── rules.py
 ├── notebooks/
 │   ├── 01_data_creation.ipynb
@@ -157,16 +211,17 @@ fraud_model/
 
 ---
 
-## next steps
+## future experiments
 
-1. complete stage 05 — baseline decision tree
-2. stage 06 — train catboost, xgboost, lightgbm
-3. stage 07 — feature selection
-4. stage 08 — hyperparameter tuning with optuna
-5. stage 09 — final training on selected features and best params
-6. stage 10 — head to head model evaluation
-7. stage 11 — mrm: ks statistic and psi
-8. stage 12 — shap explainability
-9. stage 13 — fraud rules
-10. write readme
-11. clean and final commit
+- rule-based model routing using hard business segments
+  (has_identity, device type, card network)
+- tabular transformer comparison (TabNet, FT-Transformer)
+- reusable pipeline agent: python run_pipeline.py --data dataset.csv
+- test on secondary dataset (PaySim) to validate generalization
+
+---
+
+## status: complete
+
+all 13 stages implemented and committed.
+final clean run and readme remaining before submission.

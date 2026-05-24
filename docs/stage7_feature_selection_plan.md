@@ -4,6 +4,13 @@
 
 Run in order. Each step narrows the field. Every cut has a documented reason.
 
+steps implemented: variance threshold, correlation matrix,
+mutual information, chi-squared, catboost importance, shap values.
+
+result: 457 features reduced to 115 selected features.
+graph features (28 columns) eliminated at variance threshold —
+aggregation features capture equivalent linkage signal more directly.
+
 ---
 
 ## step 1 — variance threshold
@@ -117,25 +124,6 @@ shap_df = pd.DataFrame({
     'feature': X_train.columns,
     'shap_importance': np.abs(shap_values).mean(axis=0)
 }).sort_values('shap_importance', ascending=False)
-```
-
----
-
-## step 8 — featurewiz (sanity check)
-
-Run featurewiz independently and compare its selected feature
-set against the manual stack output. Agreement = validation.
-Disagreement = investigate.
-
-```python
-from featurewiz import featurewiz
-
-features, train = featurewiz(
-    dataname=df_train,
-    target='isFraud',
-    corr_limit=0.70,
-    verbose=2
-)
 ```
 
 ---
