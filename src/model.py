@@ -74,6 +74,8 @@ def train_catboost(X_train, y_train, X_val, y_val, cat_features):
     """
     from catboost import CatBoostClassifier
 
+    scale_pos_weight = float((y_train == 0).sum()) / float((y_train == 1).sum())
+
     model = CatBoostClassifier(
         iterations=1000,
         learning_rate=0.05,
@@ -83,6 +85,7 @@ def train_catboost(X_train, y_train, X_val, y_val, cat_features):
         verbose=100,
         early_stopping_rounds=50,
         task_type='GPU' if get_device() == 'gpu' else 'CPU',
+        scale_pos_weight=scale_pos_weight,
     )
     model.fit(X_train, y_train, eval_set=(X_val, y_val), cat_features=cat_features)
     return model
@@ -186,6 +189,7 @@ def train_catboost_final(X_train, y_train, X_val, y_val, cat_features, params):
         'verbose': 100,
         'early_stopping_rounds': 50,
         'task_type': 'GPU' if get_device() == 'gpu' else 'CPU',
+        'scale_pos_weight': float((y_train == 0).sum()) / float((y_train == 1).sum()),
     }
     model = CatBoostClassifier(**{**params, **fixed})
     model.fit(X_train, y_train, eval_set=(X_val, y_val), cat_features=cat_features)

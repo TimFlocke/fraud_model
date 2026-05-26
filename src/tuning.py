@@ -31,6 +31,8 @@ def tune_catboost(X_train, y_train, X_val, y_val, n_trials=20):
     """
     from catboost import CatBoostClassifier
 
+    scale_pos_weight = float((y_train == 0).sum()) / float((y_train == 1).sum())
+
     def objective(trial):
         params = {
             'iterations': trial.suggest_int('iterations', 500, 1500, step=100),
@@ -42,6 +44,7 @@ def tune_catboost(X_train, y_train, X_val, y_val, n_trials=20):
             'early_stopping_rounds': 50,
             'verbose': 0,
             'task_type': 'GPU' if get_device() == 'gpu' else 'CPU',
+            'scale_pos_weight': scale_pos_weight,
         }
         model = CatBoostClassifier(**params)
         model.fit(X_train, y_train, eval_set=(X_val, y_val))
