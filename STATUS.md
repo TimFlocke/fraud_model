@@ -106,7 +106,7 @@ top shap features (ensemble):
 | model | features | params | val auc | val gini |
 |---|---|---|---|---|
 | baseline decision tree (depth=10) | full | default | 0.806 | 0.612 |
-| catboost | full | default | 0.906 | 0.812 |
+| catboost | full | default | 0.923 | 0.847 |
 | xgboost | full | default | 0.915 | 0.830 |
 | lightgbm | full | default | 0.914 | 0.829 |
 | catboost final | selected | tuned 50 trials | 0.918 | 0.836 |
@@ -115,7 +115,7 @@ top shap features (ensemble):
 | **ensemble weighted** | selected | tuned | **0.925** | **0.849** |
 
 tuning: optuna bayesian optimization, 50 trials per model
-best single model: xgboost final — val auc 0.9253
+best single model: catboost (full features) and xgboost final — val auc 0.923
 
 ---
 
