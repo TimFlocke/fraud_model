@@ -96,6 +96,8 @@ pip install pandas numpy scikit-learn matplotlib seaborn jupyter ipykernel catbo
 
 this covers all project stages. takes a few minutes.
 
+stage 14 (tabicl) also needs a cuda build of torch, see requirements.txt for the pinned version and index url.
+
 ---
 
 ## step 7 — register jupyter kernel

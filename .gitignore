@@ -225,3 +225,6 @@ data/
 
 # artifacts
 outputs/
+
+# local planning docs
+docs/tfm_context_plan.md

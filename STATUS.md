@@ -24,6 +24,7 @@ and an operationalized decision strategy.
 | 11 | model risk management — ks, psi | complete |
 | 12 | explainability — ensemble shap | complete |
 | 13 | decision strategy — score based with shap explanations | complete |
+| 14 | tabular foundation model (tabicl v2) — context optimization | complete |
 
 ---
 
@@ -214,7 +215,9 @@ fraud_model/
 ## future experiments
 
 - rule-based model routing using hard business segments
-  (has_identity, device type, card network)
+  (has_identity, device type, card network) — has_identity routing
+  tested in stage 14 (D_seg): ties a single balanced tfm context
+  at ~18% lower scoring cost
 - tabular transformer comparison (TabNet, FT-Transformer)
 - reusable pipeline agent: python run_pipeline.py --data dataset.csv
 - test on secondary dataset (PaySim) to validate generalization

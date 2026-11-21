@@ -28,6 +28,25 @@ This is intended to be a re-usable pipeline for fraud modeling. There are 13 sta
 
 ---
 
+## tabular foundation model: context optimization
+
+Stage 14 adds a tabular foundation model (TabICLv2) on top of the existing pipeline. A TFM has frozen weights, so the only thing to optimize is the context: the labeled rows it compares each new transaction against. Contexts are drawn from the validation split, each row carries the top 25 SHAP features plus the production ensemble score, and every run is scored on the test split. The comparison covers a random context, a class-balanced context, a CatBoost model retrained on the same rows, and three routed 'context banks' (tree leaves, filled tree leaves, has_identity segments).
+
+| run | description | test pr-auc | test roc-auc | sec per 100k rows |
+|---|---|---|---|---|
+| A | production ensemble | 0.519 | 0.906 | n/a |
+| S | catboost retrained on val, same inputs | 0.558 | 0.919 | 3.6 |
+| C | tfm, one class-balanced 10k context | 0.627 | 0.932 | 96.5 |
+| D_seg | tfm, one context per has_identity segment | 0.626 | 0.935 | 79.4 |
+
+A balanced context lifts pr-auc by 0.11 over production, about two thirds of which is not explained by fresher labels (untuned S). Routing on tree leaves did not beat one balanced context at this data scale; routing on has_identity ties it at about 18% lower cost. Timings are batch throughput on a 4 gb laptop gpu.
+
+![TFM quality vs cost](assets/tfm_pr_auc_vs_cost.png)
+
+Full write-up: [docs/tfm_optimization.md](docs/tfm_optimization.md)
+
+---
+
 ## pipeline
 
 | stage | notebook | description |
