@@ -150,4 +150,4 @@ A few ideas came up while working through this that I did not have time to test:
 
 ## How was this built?
 
-I used Claude as a planning partner to design the experiments and review results, and Claude Code to implement them in the repo, with a review step before anything was committed. The core ideas were my own: putting the production ensemble score into the context, the context bank with a lookup to pre-built contexts, and splitting contexts on the model's errors (D_err). I also chose the decision tree as the bank's routing method, and the review steps caught issues like the stale decision thresholds before submission.
+I used Claude as a planning partner to design the experiments and review results, and Claude Code to implement them in the repo, with a review step before anything was committed. The core ideas including model research were my own: putting the production ensemble score into the context, the context bank with a lookup to pre-built contexts, and splitting contexts on the model's errors (D_err). I also chose the decision tree as the bank's routing method, and the review steps caught issues like the stale decision thresholds before submission.
