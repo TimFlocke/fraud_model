@@ -281,17 +281,17 @@ STRATEGY_DECLINE_THRESHOLD = 900   # score above this = decline
 
 ## future experiments
 
-- **rule-based model routing**, segment transactions using hard
+- **rule-based model routing**: segment transactions using hard
   business rules (has_identity, device type, card network) and route
   each segment to the model with highest segment-level auc. has_identity
   routing tested in stage 14 (D_seg) ties a single balanced tfm context
   at about 18% lower scoring cost
-- **tabular transformer**, TabNet or FT-Transformer comparison
+- **tabular transformer**: TabNet or FT-Transformer comparison
   against gradient boosting (stage 14 covers a tabular foundation
   model, TabICLv2)
-- **reusable pipeline agent**, generalize to any labeled transaction
+- **reusable pipeline agent**: generalize to any labeled transaction
   dataset via cli: `python run_pipeline.py --data dataset.csv --target fraud_label`
-- **PaySim validation**, run pipeline on secondary dataset to
+- **PaySim validation**: run pipeline on secondary dataset to
   confirm generalization
 
 ---
