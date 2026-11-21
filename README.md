@@ -1,8 +1,10 @@
 # Fraud Modeling Pipeline
 
-End-to-end fraud detection pipeline built on the [IEEE-CIS Fraud Detection](https://www.kaggle.com/c/ieee-fraud-detection/data) dataset. Covers the full model development lifecycle — from raw data to an operationalized decision strategy — following production ML standards.
+End-to-end fraud detection pipeline built on the [IEEE-CIS Fraud Detection](https://www.kaggle.com/c/ieee-fraud-detection/data) dataset. Covers the full model development lifecycle, from raw data to an operationalized decision strategy, following production ML standards.
 
-This is intended to be a re-usable pipeline for fraud modeling. There are 14 stages, with functions extracted to src files, and demonstrated using modularized notebooks. Extensive due dilligence spent on feature engineering, selection, and transformations - including creation of graph-related features. 
+This is intended to be a re-usable pipeline for fraud modeling. There are 14 stages, with functions extracted to src files, and demonstrated using modularized notebooks. Extensive due dilligence spent on feature engineering, selection, and transformations, including creation of graph-related features. 
+
+**New:** Stage 14 explores context optimization for a tabular foundation model (TabICLv2). [Read the write-up](docs/tfm_optimization.md).
 
 ---
 
@@ -10,7 +12,7 @@ This is intended to be a re-usable pipeline for fraud modeling. There are 14 sta
 
 | model | features | test auc | test gini | val auc (tuning split) | val gini (tuning split) |
 |---|---|---|---|---|---|
-| baseline — decision tree | full | 0.791 | 0.581 | 0.806 | 0.612 |
+| baseline decision tree | full | 0.791 | 0.581 | 0.806 | 0.612 |
 | catboost | full, default | 0.907 | 0.814 | 0.923 | 0.847 |
 | xgboost | full, default | 0.893 | 0.785 | 0.915 | 0.830 |
 | lightgbm | full, default | 0.902 | 0.805 | 0.914 | 0.829 |
@@ -19,7 +21,7 @@ This is intended to be a re-usable pipeline for fraud modeling. There are 14 sta
 | lightgbm final | selected, tuned | 0.900 | 0.800 | 0.916 | 0.832 |
 | **ensemble weighted** | selected, tuned | **0.905** | **0.811** | 0.925 | 0.849 |
 
-Val was used for early stopping, tuning and blend weights, so it reads higher than test. On test, the weighted ensemble (0.905) is level with CatBoost final (0.905) and just below the retrained full-feature CatBoost (0.907); its value is stability across models rather than extra lift.
+Val was used for early stopping, tuning and blend weights, so it reads higher than test. On test, the weighted ensemble (0.905) is level with CatBoost final (0.905) and just below the retrained full-feature CatBoost (0.907); its value is stability across models.
 
 **KS statistic (test):** 65+ (exceptional) | **Score PSI train vs test:** 0.006 (stable)
 
@@ -32,7 +34,7 @@ Val was used for early stopping, tuning and blend weights, so it reads higher th
 
 ## tabular foundation model: context optimization
 
-Stage 14 adds a tabular foundation model (TabICLv2) on top of the existing pipeline. A TFM has frozen weights, so the only thing to optimize is the context: the labeled rows it compares each new transaction against. Contexts are drawn from the validation split, each row carries the top 25 SHAP features plus the production ensemble score, and every run is scored on the test split. The comparison covers a random context, a class-balanced context, a CatBoost model retrained on the same rows, and three routed 'context banks' (tree leaves, filled tree leaves, has_identity segments).
+Stage 14 adds a tabular foundation model (TabICLv2) on top of the existing pipeline. A TFM has frozen weights, so the only thing to optimize is the context. The context is the set of labeled rows it compares each new transaction against. Contexts are drawn from the validation split, each row carries the top 25 SHAP features plus the production ensemble score, and every run is scored on the test split. The comparison covers a random context, a class-balanced context, a CatBoost model retrained on the same rows, and three routed 'context banks' (tree leaves, filled tree leaves, has_identity segments).
 
 | run | description | test pr-auc | test roc-auc | sec per 100k rows |
 |---|---|---|---|---|
@@ -60,7 +62,7 @@ Full write-up: [docs/tfm_optimization.md](docs/tfm_optimization.md)
 | 03 | 03_feature_engineering | graph features, velocity features, transforms |
 | 04 | 04_train_test_split | chronological 70/15/15 split |
 | 05 | 05_baseline | decision tree baseline |
-| 06 | 06_model_training | catboost, xgboost, lightgbm — full feature set |
+| 06 | 06_model_training | catboost, xgboost, lightgbm: full feature set |
 | 07 | 07_feature_selection | variance, correlation, MI, chi2, catboost, shap |
 | 08 | 08_tuning | optuna bayesian optimization, 50 trials each |
 | 09 | 09_final_training | tuned models + weighted ensemble |
@@ -79,10 +81,10 @@ transactions are represented as a graph where nodes are entities
 (cards, email domains, addresses, devices) and edges are shared
 transactions. four graph metrics computed per entity:
 
-- pagerank — structural influence in the network
-- weighted pagerank — influence scaled by transaction amount
-- degree centrality — number of unique connections
-- connected component size — fraud ring membership
+- pagerank (structural influence in the network)
+- weighted pagerank (influence scaled by transaction amount)
+- degree centrality (number of unique connections)
+- connected component size (fraud ring membership)
 
 ![fraud dense subgraph](assets/fraud_dense_subgraph.png)
 
@@ -90,10 +92,10 @@ transactions. four graph metrics computed per entity:
 21 aggregation features capturing historical entity behavior:
 
 ```
-card1__addr1__nunique         — unique addresses per card
-card1__R_emaildomain__nunique — unique recipient domains per card
-card1__TransactionID__count   — transaction velocity per card
-P_emaildomain__card1__nunique — unique cards per purchaser email
+card1__addr1__nunique         (unique addresses per card)
+card1__R_emaildomain__nunique (unique recipient domains per card)
+card1__TransactionID__count   (transaction velocity per card)
+P_emaildomain__card1__nunique (unique cards per purchaser email)
 ```
 
 ### feature selection
@@ -109,8 +111,8 @@ multi-method selection stack reduces 457 features to 115:
 features surviving at least two ranking methods are retained.
 
 ### model risk management
-- **ks statistic:** 65+ on test set — exceptional separation
-- **score psi:** 0.006 train vs test — stable population
+- **ks statistic:** 65+ on test set, exceptional separation
+- **score psi:** 0.006 train vs test, stable population
 - **uniform score transformation:** raw probabilities mapped to
   0-1000 scale fitted on training distribution for operational use
 
@@ -138,7 +140,7 @@ primary fraud driver per transaction for the analyst queue.
 |---|---|
 | C13 | number of linked accounts on card |
 | C1 | number of addresses associated with card |
-| D15, D1 | timedelta features — account age and recency |
+| D15, D1 | timedelta features: account age and recency |
 | TransactionAmt | transaction amount |
 | card1__R_emaildomain__nunique | unique recipient domains per card |
 | card1__TransactionAmt__mean | average transaction amount per card |
@@ -149,12 +151,12 @@ primary fraud driver per transaction for the analyst queue.
 
 ## eda highlights
 
-- **76.2%** of transactions have no identity data — structural,
+- **76.2%** of transactions have no identity data, structural,
   not random. fraud rate with identity: **7.96%** vs without: **2.10%**
 - recipient gmail address appears **4x** more often in fraud (trigger rate ix=375)
 - mobile transactions **3x** more likely to be fraud (ix=315)
 - discover card **2x** baseline fraud rate (ix=230)
-- m-columns (verification matches) consistently protective — all negative trigger rates
+- m-columns (verification matches) consistently protective, all negative trigger rates
 
 ![relative trigger rate](assets/relative_trigger_rate.png)
 ---
@@ -170,7 +172,7 @@ fraud_model/
 ├── requirements.txt
 ├── mod_funcs.py           ← original utility functions
 ├── assets/                ← key plots
-├── data/                  ← gitignored — see data setup below
+├── data/                  ← gitignored, see data setup below
 ├── docs/
 │   ├── project_decisions.md
 │   ├── stage_specs.md
@@ -237,7 +239,7 @@ pip install -r requirements.txt
 ```
 
 each notebook loads outputs from the previous stage.
-models load from disk if already trained — no unnecessary retraining.
+models load from disk if already trained, no unnecessary retraining.
 
 ---
 
@@ -279,17 +281,17 @@ STRATEGY_DECLINE_THRESHOLD = 900   # score above this = decline
 
 ## future experiments
 
-- **rule-based model routing** — segment transactions using hard
+- **rule-based model routing**, segment transactions using hard
   business rules (has_identity, device type, card network) and route
   each segment to the model with highest segment-level auc. has_identity
-  routing tested in stage 14 (D_seg): ties a single balanced tfm context
+  routing tested in stage 14 (D_seg) ties a single balanced tfm context
   at about 18% lower scoring cost
-- **tabular transformer** — TabNet or FT-Transformer comparison
+- **tabular transformer**, TabNet or FT-Transformer comparison
   against gradient boosting (stage 14 covers a tabular foundation
   model, TabICLv2)
-- **reusable pipeline agent** — generalize to any labeled transaction
+- **reusable pipeline agent**, generalize to any labeled transaction
   dataset via cli: `python run_pipeline.py --data dataset.csv --target fraud_label`
-- **PaySim validation** — run pipeline on secondary dataset to
+- **PaySim validation**, run pipeline on secondary dataset to
   confirm generalization
 
 ---
