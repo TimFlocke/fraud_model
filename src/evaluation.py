@@ -234,3 +234,38 @@ def plot_pr_comparison(model_scores, y_true, output_path):
     fig.savefig(output_path, dpi=150, bbox_inches='tight')
     plt.show()
     plt.close()
+
+
+def plot_auc_progression(exp_log, output_path):
+    """
+    Plots val AUC across experiment runs in chronological order.
+
+    Runs without a val AUC (e.g. stage 14 tfm runs, which use val as the
+    context pool) and identical reruns (same model and val AUC) are dropped.
+
+    Parameters:
+    - exp_log: experiment log dataframe from load_experiment_log
+    - output_path: file path to save the figure
+
+    Returns:
+    - the filtered log that was plotted
+    """
+    log = exp_log[exp_log['metrics.val_auc'].notna()]
+    log = log.sort_values('timestamp').drop_duplicates(['model', 'metrics.val_auc']).reset_index(drop=True)
+
+    fig, ax = plt.subplots(figsize=(13, 5))
+    ax.plot(range(len(log)), log['metrics.val_auc'], 'o-', color='steelblue', markersize=6)
+    for i, row in log.iterrows():
+        ax.annotate(row['model'], xy=(i, row['metrics.val_auc']), xytext=(0, 10),
+                    textcoords='offset points', ha='center', fontsize=7, rotation=40)
+    ax.set_xticks(range(len(log)))
+    ax.set_xticklabels(range(1, len(log) + 1))
+    ax.set_xlabel('experiment run (chronological, identical reruns removed)')
+    ax.set_ylabel('val AUC (tuning split)')
+    ax.set_ylim(0.79, 0.95)
+    ax.set_title('AUC Progression Across All Experiments')
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.show()
+    plt.close()
+    return log

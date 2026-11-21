@@ -26,7 +26,7 @@ Val was used for early stopping, tuning and blend weights, so it reads higher th
 ![AUC progression](assets/auc_progression.png)
 ![Gains comparison](assets/gains_comparison_final.png)
 ![Precision-Recall Curve comparison](assets/pr_curves_comparison_final.png)
-![Best model: gains chart](assets/best_model_test_gains.png)
+![Production ensemble: gains chart](assets/best_model_test_gains.png)
 
 ---
 
@@ -44,6 +44,8 @@ Stage 14 adds a tabular foundation model (TabICLv2) on top of the existing pipel
 A balanced context lifts pr-auc by 0.11 over production, about two thirds of which is not explained by fresher labels (untuned S). Routing on tree leaves did not beat one balanced context at this data scale; routing on has_identity ties it at about 18% lower cost. At the decline tier's volume (8,625 test transactions, score > 900), run C's precision is 0.271 vs 0.244 for the ensemble, 231 more frauds caught with the same number of declines. Timings are batch throughput on a 4 gb laptop gpu.
 
 ![TFM quality vs cost](assets/tfm_pr_auc_vs_cost.png)
+
+Stage 14 is an experimental extension; the production scoring path remains stages 1-13. If adopted, the TFM would sit behind the ensemble as a second-stage scorer for the step-up band, with its own PSI monitoring and reason codes.
 
 Full write-up: [docs/tfm_optimization.md](docs/tfm_optimization.md)
 

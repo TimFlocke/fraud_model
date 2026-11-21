@@ -24,7 +24,9 @@ and an operationalized decision strategy.
 | 11 | model risk management — ks, psi | complete |
 | 12 | explainability — ensemble shap | complete |
 | 13 | decision strategy — score based with shap explanations | complete |
-| 14 | tabular foundation model (tabicl v2) — context optimization | complete |
+| 14 | tabular foundation model (tabicl v2) — context optimization | complete (experimental) |
+
+stage 14 is experimental and not part of the production scoring path, which remains stages 01-13.
 
 ---
 
