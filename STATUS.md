@@ -104,16 +104,18 @@ top shap features (ensemble):
 
 ## model results
 
-| model | features | params | val auc | val gini |
-|---|---|---|---|---|
-| baseline decision tree (depth=10) | full | default | 0.806 | 0.612 |
-| catboost | full | default | 0.923 | 0.847 |
-| xgboost | full | default | 0.915 | 0.830 |
-| lightgbm | full | default | 0.914 | 0.829 |
-| catboost final | selected | tuned 50 trials | 0.918 | 0.836 |
-| xgboost final | selected | tuned 50 trials | 0.923 | 0.846 |
-| lightgbm final | selected | tuned 50 trials | 0.916 | 0.832 |
-| **ensemble weighted** | selected | tuned | **0.925** | **0.849** |
+| model | features | params | test auc | test gini | val auc (tuning split) | val gini (tuning split) |
+|---|---|---|---|---|---|---|
+| baseline decision tree (depth=10) | full | default | 0.791 | 0.581 | 0.806 | 0.612 |
+| catboost | full | default | 0.907 | 0.814 | 0.923 | 0.847 |
+| xgboost | full | default | 0.893 | 0.785 | 0.915 | 0.830 |
+| lightgbm | full | default | 0.902 | 0.805 | 0.914 | 0.829 |
+| catboost final | selected | tuned 50 trials | 0.905 | 0.810 | 0.918 | 0.836 |
+| xgboost final | selected | tuned 50 trials | 0.899 | 0.797 | 0.923 | 0.846 |
+| lightgbm final | selected | tuned 50 trials | 0.900 | 0.800 | 0.916 | 0.832 |
+| **ensemble weighted** | selected | tuned | **0.905** | **0.811** | 0.925 | 0.849 |
+
+val was used for early stopping, tuning and blend weights, so it reads higher than test. On test, the weighted ensemble (0.905) is level with CatBoost final (0.905) and just below the retrained full-feature CatBoost (0.907); its value is stability across models rather than extra lift.
 
 tuning: optuna bayesian optimization, 50 trials per model
 best single model: catboost (full features) and xgboost final — val auc 0.923

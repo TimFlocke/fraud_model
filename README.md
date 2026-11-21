@@ -2,24 +2,26 @@
 
 End-to-end fraud detection pipeline built on the [IEEE-CIS Fraud Detection](https://www.kaggle.com/c/ieee-fraud-detection/data) dataset. Covers the full model development lifecycle — from raw data to an operationalized decision strategy — following production ML standards.
 
-This is intended to be a re-usable pipeline for fraud modeling. There are 13 stages, with functions extracted to src files, and demonstrated using modularized notebooks. Extensive due dilligence spent on feature engineering, selection, and transformations - including creation of graph-related features. 
+This is intended to be a re-usable pipeline for fraud modeling. There are 14 stages, with functions extracted to src files, and demonstrated using modularized notebooks. Extensive due dilligence spent on feature engineering, selection, and transformations - including creation of graph-related features. 
 
 ---
 
 ## results
 
-| model | features | val auc | val gini |
-|---|---|---|---|
-| baseline — decision tree | full | 0.806 | 0.612 |
-| catboost | full, default | 0.906 | 0.812 |
-| xgboost | full, default | 0.915 | 0.830 |
-| lightgbm | full, default | 0.914 | 0.829 |
-| catboost final | selected, tuned | 0.918 | 0.836 |
-| xgboost final | selected, tuned | 0.923 | 0.846 |
-| lightgbm final | selected, tuned | 0.916 | 0.832 |
-| **ensemble weighted** | selected, tuned | **0.925** | **0.849** |
+| model | features | test auc | test gini | val auc (tuning split) | val gini (tuning split) |
+|---|---|---|---|---|---|
+| baseline — decision tree | full | 0.791 | 0.581 | 0.806 | 0.612 |
+| catboost | full, default | 0.907 | 0.814 | 0.923 | 0.847 |
+| xgboost | full, default | 0.893 | 0.785 | 0.915 | 0.830 |
+| lightgbm | full, default | 0.902 | 0.805 | 0.914 | 0.829 |
+| catboost final | selected, tuned | 0.905 | 0.810 | 0.918 | 0.836 |
+| xgboost final | selected, tuned | 0.899 | 0.797 | 0.923 | 0.846 |
+| lightgbm final | selected, tuned | 0.900 | 0.800 | 0.916 | 0.832 |
+| **ensemble weighted** | selected, tuned | **0.905** | **0.811** | 0.925 | 0.849 |
 
-**KS statistic:** 65+ (exceptional) | **Score PSI train vs test:** 0.006 (stable)
+Val was used for early stopping, tuning and blend weights, so it reads higher than test. On test, the weighted ensemble (0.905) is level with CatBoost final (0.905) and just below the retrained full-feature CatBoost (0.907); its value is stability across models rather than extra lift.
+
+**KS statistic (test):** 65+ (exceptional) | **Score PSI train vs test:** 0.006 (stable)
 
 ![AUC progression](assets/auc_progression.png)
 ![Gains comparison](assets/gains_comparison_final.png)
@@ -34,12 +36,12 @@ Stage 14 adds a tabular foundation model (TabICLv2) on top of the existing pipel
 
 | run | description | test pr-auc | test roc-auc | sec per 100k rows |
 |---|---|---|---|---|
-| A | production ensemble | 0.519 | 0.906 | n/a |
+| A | production ensemble | 0.519 | 0.905 | n/a |
 | S | catboost retrained on val, same inputs | 0.558 | 0.919 | 3.6 |
 | C | tfm, one class-balanced 10k context | 0.627 | 0.932 | 96.5 |
 | D_seg | tfm, one context per has_identity segment | 0.626 | 0.935 | 79.4 |
 
-A balanced context lifts pr-auc by 0.11 over production, about two thirds of which is not explained by fresher labels (untuned S). Routing on tree leaves did not beat one balanced context at this data scale; routing on has_identity ties it at about 18% lower cost. Timings are batch throughput on a 4 gb laptop gpu.
+A balanced context lifts pr-auc by 0.11 over production, about two thirds of which is not explained by fresher labels (untuned S). Routing on tree leaves did not beat one balanced context at this data scale; routing on has_identity ties it at about 18% lower cost. At the decline tier's volume (8,625 test transactions, score > 900), run C's precision is 0.271 vs 0.244 for the ensemble, 231 more frauds caught with the same number of declines. Timings are batch throughput on a 4 gb laptop gpu.
 
 ![TFM quality vs cost](assets/tfm_pr_auc_vs_cost.png)
 
@@ -64,6 +66,7 @@ Full write-up: [docs/tfm_optimization.md](docs/tfm_optimization.md)
 | 11 | 11_mrm | ks statistic, psi, uniform score transformation |
 | 12 | 12_explainability | weighted ensemble shap |
 | 13 | 13_fraud_rules | score-based decision strategy with shap explanations |
+| 14 | 14_tfm_context | tabular foundation model (tabicl v2), context optimization |
 
 ---
 
@@ -112,7 +115,7 @@ features surviving at least two ranking methods are retained.
 ![ensemble ks curve](assets/ks_curve_ensemble_weighted.png)
 
 ### decision strategy
-score-based tiers with shap-driven explanations:
+score-based tiers with shap-driven explanations, measured on the test split:
 
 | tier | threshold | precision | pct transactions | pct fraud caught |
 |---|---|---|---|---|
@@ -169,7 +172,8 @@ fraud_model/
 ├── docs/
 │   ├── project_decisions.md
 │   ├── stage_specs.md
-│   └── stage7_feature_selection_plan.md
+│   ├── stage7_feature_selection_plan.md
+│   └── tfm_optimization.md       ← stage 14 write-up
 ├── src/
 │   ├── utils.py           ← full_value_counts, get_relative_trigger
 │   ├── features.py        ← data loading, cleaning, engineering
@@ -181,8 +185,11 @@ fraud_model/
 │   ├── mrm.py             ← ks, psi, score transformation
 │   ├── explainability.py  ← ensemble shap functions
 │   ├── experiment.py      ← experiment logger
-│   └── rules.py           ← decision strategy functions
-├── notebooks/             ← 13 notebooks, run in order
+│   ├── rules.py           ← decision strategy functions
+│   └── tfm.py             ← tabular foundation model contexts and scoring
+├── notebooks/             ← 14 notebooks, run in order (incl. 14_tfm_context.ipynb)
+├── tests/
+│   └── test_tfm.py        ← offline tests for src/tfm.py
 └── outputs/               ← gitignored, regenerated by running notebooks
     ├── models/
     ├── plots/
@@ -224,7 +231,7 @@ pip install -r requirements.txt
 ### 5. run notebooks in order
 
 ```
-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13
+01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14
 ```
 
 each notebook loads outputs from the previous stage.
@@ -262,8 +269,8 @@ NULL_THRESHOLD = 0.80              # null drop threshold
 RANDOM_STATE = 42
 TARGET = 'isFraud'
 RULES_TOP_N_FEATURES = 10          # shap features for decision strategy
-STRATEGY_APPROVE_THRESHOLD = 400   # score below this = approve
-STRATEGY_DECLINE_THRESHOLD = 700   # score above this = decline
+STRATEGY_APPROVE_THRESHOLD = 500   # score at or below this = approve
+STRATEGY_DECLINE_THRESHOLD = 900   # score above this = decline
 ```
 
 ---
@@ -272,9 +279,12 @@ STRATEGY_DECLINE_THRESHOLD = 700   # score above this = decline
 
 - **rule-based model routing** — segment transactions using hard
   business rules (has_identity, device type, card network) and route
-  each segment to the model with highest segment-level auc
+  each segment to the model with highest segment-level auc. has_identity
+  routing tested in stage 14 (D_seg): ties a single balanced tfm context
+  at about 18% lower scoring cost
 - **tabular transformer** — TabNet or FT-Transformer comparison
-  against gradient boosting
+  against gradient boosting (stage 14 covers a tabular foundation
+  model, TabICLv2)
 - **reusable pipeline agent** — generalize to any labeled transaction
   dataset via cli: `python run_pipeline.py --data dataset.csv --target fraud_label`
 - **PaySim validation** — run pipeline on secondary dataset to

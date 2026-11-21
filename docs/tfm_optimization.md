@@ -17,13 +17,15 @@ What are the goals of this analysis? There are two key factors when optimizing c
 
 Methodology:
 
-How was the data set up? The existing IEEE-CIS feature set and chronological 70/15/15 split were reused, and nothing was retrained. The validation set was used as the ‘context pool’... every context the TFM sees is drawn from this tranche. The production models never trained on validation data, so their scores there are out-of-sample. That said, the validation set was used for early stopping and to set the ensemble blend weights, so the ensemble looks a bit better on validation (0.925 AUC) than on test (0.906). The TFM learns from these slightly optimistic scores, which is one reason I added run S as a check (see below). Furthermore, the validation set was the time period right before the test set. All runs were evaluated on the test set, the same as the stage 10 evaluation notebook.
+How was the data set up? The existing IEEE-CIS feature set and chronological 70/15/15 split were reused, and nothing was retrained. The validation set was used as the ‘context pool’... every context the TFM sees is drawn from this tranche. The production models never trained on validation data, so their scores there are out-of-sample. That said, the validation set was used for early stopping and to set the ensemble blend weights, so the ensemble looks a bit better on validation (0.925 AUC) than on test (0.905). The TFM learns from these slightly optimistic scores, which is one reason I added run S as a check (see below). Furthermore, the validation set was the time period right before the test set. All runs were evaluated on the test set, the same as the stage 10 evaluation notebook.
 
 What does the TFM see? In concept, it seemed wise to narrow the features using importance. Hence, each context row has the top 25 features by ensemble SHAP importance, plus the production ensemble score (‘prior_score’). As I was building on an existing project, including the score lets the TFM build on the existing model and focus on where it is wrong, rather than learning fraud from scratch. 
 
 Was any additional feature engineering needed? Please note that missing-value flags for 9 of the features were created. TabICLv2 fills missing values with the average, which throws away a strong fraud signal (for example: fraud is 12.7% when addr1__card1__nunique is missing vs 2.4% when it isn’t). The TFM sees 35 features once completed.
 
-Which approaches were compared? Each run changes one thing, so the effect of each choice can be isolated:
+Which approaches were compared? Increasingly more complex context builds were constructed ranging from a simple 10k record context used for all records to more dynamic context banking and routing, where pre-selected contexts were used after deciding on the most similar. 
+
+Each run changes one thing, so the effect of each choice can be isolated:
 
 A: The production ensemble score on its own. This is the bar to beat.
 C0: The TFM with one random 10,000 row context (about 3.4% fraud).
@@ -42,7 +44,7 @@ What were the results? The table below shows every run on the test set. For the 
 
 | Run | PR-AUC | ROC-AUC | Recall at 1% | Recall at 20% | Seconds per 100k |
 |---|---|---|---|---|---|
-| A | 0.519 | 0.906 | 0.254 | 0.825 | n/a (existing score) |
+| A | 0.519 | 0.905 | 0.254 | 0.825 | n/a (existing score) |
 | C0 | 0.570 ± 0.005 | 0.920 ± 0.001 | 0.254 ± 0.004 | 0.852 ± 0.003 | 93.7 |
 | C | 0.627 ± 0.002 | 0.932 ± 0.001 | 0.264 ± 0.003 | 0.875 ± 0.003 | 96.5 |
 | S | 0.558 | 0.919 | 0.246 | 0.854 | 3.6 |
@@ -53,7 +55,7 @@ What were the results? The table below shows every run on the test set. For the 
 
 ![Recall vs alert rate](../assets/tfm_recall_vs_alert.png)
 
-Did the TFM beat the production ensemble and a retrained model? Yes. With one class-balanced context (run C), PR-AUC on the test set rose from 0.519 to 0.627, and recall at a 20% alert rate went from 82.5% to 87.5% of fraud caught. The CatBoost model trained on the same validation rows and inputs (run S) reached 0.558. So roughly a third of the lift comes from seeing newer labeled data, and the rest comes from the TFM, at least against an untuned CatBoost model. The TFM got there while looking at 10,000 validation rows, where CatBoost trained on about 71,000. At the 1% alert rate the gain is small (25.4% to 26.4%); most of the improvement shows up deeper in the ranking.
+Did the TFM beat the production ensemble and a retrained model? Yes. With one class-balanced context (run C), PR-AUC on the test set rose from 0.519 to 0.627, and recall at a 20% alert rate went from 82.5% to 87.5% of fraud caught. The CatBoost model trained on the same validation rows and inputs (run S) reached 0.558. So roughly a third of the lift comes from seeing newer labeled data, and the rest comes from the TFM, at least against an untuned CatBoost model. The TFM got there while looking at 10,000 validation rows, where CatBoost trained on about 71,000. At the 1% alert rate the gain is small (25.4% to 26.4%); most of the improvement shows up deeper in the ranking. At the decline tier's volume (8,625 test transactions, score > 900), run C's precision is 0.271 vs 0.244 for the ensemble, 2,335 vs 2,104 frauds on average across seeds, so 231 more frauds caught with the same number of declines.
 
 How much did balancing the context matter? A lot. The random context (run C0) holds only about 340 frauds and reached 0.570. The balanced context of the same size holds 2,000 frauds and reached 0.627. Since the context is the only thing that can be changed, choosing which rows go into it was the biggest lever I found.
 
