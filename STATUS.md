@@ -140,9 +140,9 @@ thresholds configurable in config.py.
 
 | tier | threshold | precision | pct transactions | pct fraud captured |
 |---|---|---|---|---|
-| decline | score > 700 | 0.145 | 19.8% | 82.4% |
-| step-up | 400 < score <= 700 | 0.016 | 28.4% | 12.8% |
-| approve | score <= 400 | 0.003 | 51.8% | 4.8% |
+| decline | score > 900 | 0.244 | 9.7% | 68.3% |
+| step-up | 500 < score <= 900 | 0.024 | 38.5% | 27.0% |
+| approve | score <= 500 | 0.003 | 51.8% | 4.8% |
 
 shap explanations identify primary fraud driver per transaction
 for analyst queue and audit trail.

@@ -34,7 +34,7 @@ D_seg: The same bank, but routed on a simple business segment (has_identity) ins
 D_fill: The same as D, but each region's context is filled with its own non-fraud rows up to 10,000 rows, or the whole region if smaller, so most transactions see a context about the same size as in run C.
 D_err: The same bank, but split at the decision strategy's decline threshold, so one context holds the transactions the ensemble flags (true and false positives) and the other holds the ones it passes (true and false negatives).
 
-How were the runs measured? Every TFM run was repeated with 3 random seeds, each drawing a different sample of context rows, and reported as the mean and spread. A single pull would not be as informative. Quality was measured with PR-AUC, ROC-AUC, and recall at a 1% and 20% alert rate. The 20% rate matches the decline tier from the stage 13 decision strategy. Cost was measured as seconds to score 100,000 transactions, since that is where a TFM spends its compute.
+How were the runs measured? Every TFM run was repeated with 3 random seeds, each drawing a different sample of context rows, and reported as the mean and spread. A single pull would not be as informative. Quality was measured with PR-AUC, ROC-AUC, and recall at a 1% and 20% alert rate. The 20% rate is a fixed comparison rate, not the stage 13 decline tier, which currently flags 9.7% of test transactions. Cost was measured as seconds to score 100,000 transactions, since that is where a TFM spends its compute.
 
 Results:
 
@@ -49,11 +49,11 @@ What were the results? The table below shows every run on the test set. For the 
 | D | 0.602 ± 0.003 | 0.926 ± 0.002 | 0.258 ± 0.001 | 0.863 ± 0.010 | 97.6 |
 | D_seg | 0.626 ± 0.001 | 0.935 ± 0.000 | 0.262 ± 0.001 | 0.879 ± 0.001 | 79.4 |
 | D_fill | 0.620 ± 0.002 | 0.930 ± 0.002 | 0.260 ± 0.001 | 0.867 ± 0.010 | 118.2 |
-| D_err | 0.615 ± 0.004 | 0.929 ± 0.001 | 0.262 ± 0.001 | 0.865 ± 0.006 | 80.3 |
+| D_err | 0.613 ± 0.003 | 0.933 ± 0.000 | 0.262 ± 0.001 | 0.873 ± 0.003 | 71.5 |
 
 ![Recall vs alert rate](../assets/tfm_recall_vs_alert.png)
 
-Did the TFM beat the production ensemble and a retrained model? Yes. With one class-balanced context (run C), PR-AUC on the test set rose from 0.519 to 0.627, and recall at the 20% 'decline tier' went from 82.5% to 87.5% of fraud caught. The CatBoost model trained on the same validation rows and inputs (run S) reached 0.558. So roughly a third of the lift comes from seeing newer labeled data, and the rest comes from the TFM, at least against an untuned CatBoost model. The TFM got there while looking at 10,000 validation rows, where CatBoost trained on about 71,000. At the 1% alert rate the gain is small (25.4% to 26.4%); most of the improvement shows up deeper in the ranking.
+Did the TFM beat the production ensemble and a retrained model? Yes. With one class-balanced context (run C), PR-AUC on the test set rose from 0.519 to 0.627, and recall at a 20% alert rate went from 82.5% to 87.5% of fraud caught. The CatBoost model trained on the same validation rows and inputs (run S) reached 0.558. So roughly a third of the lift comes from seeing newer labeled data, and the rest comes from the TFM, at least against an untuned CatBoost model. The TFM got there while looking at 10,000 validation rows, where CatBoost trained on about 71,000. At the 1% alert rate the gain is small (25.4% to 26.4%); most of the improvement shows up deeper in the ranking.
 
 How much did balancing the context matter? A lot. The random context (run C0) holds only about 340 frauds and reached 0.570. The balanced context of the same size holds 2,000 frauds and reached 0.627. Since the context is the only thing that can be changed, choosing which rows go into it was the biggest lever I found.
 
@@ -71,7 +71,7 @@ Did routing help? Not at this data scale. The tree bank (run D) scored 0.602, be
 
 The last three columns are PR-AUC on each region's test rows only.
 
-Did focusing contexts on the model's errors help? Not really. Splitting at the decline threshold (run D_err) scored 0.615, below the single context. The flagged segment holds most of the fraud (2,767 of the 3,042 frauds in the pool) and got a full 10,000 row context, and there the TFM did about as well as run C (0.672 vs 0.678 PR-AUC within the segment). The passed segment is where the missed frauds are, but it held only 275 of them, so its context shrank to 1,375 rows and it did worse than run C at finding them (0.126 vs 0.190). It is the same problem as the tree regions: a context can only teach the model about errors it has enough examples of.
+Did focusing contexts on the model's errors help? Not really. Splitting at the decline threshold (run D_err) scored 0.613, below the single context. The flagged segment holds most of the fraud (2,228 of the 3,042 frauds in the pool) and got a 7,626 row context, and there the TFM did about as well as run C (0.773 vs 0.773 PR-AUC within the segment). The passed segment is where the missed frauds are, but it held only 814 of them, so its context shrank to 4,070 rows and it did worse than run C at finding them (0.218 vs 0.262). It is the same problem as the tree regions: a context can only teach the model about errors it has enough examples of.
 
 What did it cost? Run C took about 97 seconds to score 100,000 transactions on my laptop GPU. D_seg matched its quality at about 79 seconds, roughly 18% cheaper, because its two contexts are a bit smaller. D_fill was the most expensive at about 118 seconds, since it fits seven separate contexts. CatBoost (run S) scored the same 100,000 transactions in about 3.6 seconds, around 27 times cheaper than run C. That is the trade-off with a TFM: there is no training step, but the context is part of every scoring call.
 
