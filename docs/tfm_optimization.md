@@ -128,6 +128,22 @@ Run C took about 97 seconds to score 100,000 transactions on my laptop GPU. D_se
 
 *Test PR-AUC against seconds to score 100,000 transactions (log scale), mean and spread over seeds, with the production ensemble as the reference line.*
 
+### How stable are the predictions?
+
+I took 1,000 test transactions (312 frauds, the 300 transactions ranked closest to run C's decline cutoff, and random non-fraud for the rest) and scored them 20 times in three setups. The cutoff declines the same share of test as the stage 13 decline tier (9.7%). With the same context and the same TabICL seed (test 1a), all 20 runs gave identical scores. With the same context and 20 different TabICL seeds (test 1b), scores moved a little, and the rank correlation between any two runs was at least 0.960. With 20 different balanced contexts (test 2), the median spread was 4.4 times larger for frauds and 3.2 times larger for non-fraud, and the rank correlation dropped to 0.916 at its lowest. Most of the movement is in high-scoring transactions. Most decision flips are at the cutoff: 285 of the 300 transactions nearest it changed decision at least once in test 1b and 282 in test 2, against 29 and 117 of the other 700. So which rows go into the context matters more than TabICL's own randomness, and averaging scores over a few contexts could steady decisions near the cutoff. Scoring the same 1,000 transactions inside the full test set also gave slightly different scores (21 of the 1,000 decisions differ), so the way rows are batched on the GPU adds a little noise too.
+
+| Test | Setup | Std, fraud | Std, non-fraud | Std, near cutoff | Std, other | Rank correlation, mean (min) | Flip rate |
+|---|---|--:|--:|--:|--:|--:|--:|
+| 1a | Same context, same TabICL seed | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 1.000 (1.000) | 0.0% |
+| 1b | Same context, 20 TabICL seeds | 0.0066 / 0.0429 | 0.0015 / 0.0082 | 0.0035 / 0.0089 | 0.0008 / 0.0286 | 0.976 (0.960) | 31.4% |
+| 2 | 20 contexts, same TabICL seed | 0.0287 / 0.2182 | 0.0047 / 0.0310 | 0.0109 / 0.0394 | 0.0027 / 0.1307 | 0.933 (0.916) | 39.9% |
+
+Std cells show the median / 95th percentile of each transaction's standard deviation across the 20 runs, on the corrected score. The flip rate is the share of the 1,000 transactions whose decline decision changed in at least one run.
+
+![Score spread per transaction](../assets/tfm_stability_spread.png)
+
+*Each transaction's standard deviation across 20 runs against its mean score (both log scale), for 20 TabICL seeds on one context (1b) and 20 different contexts (2), with run C's decline cutoff marked.*
+
 ### What are the caveats?
 
 1. The validation scores the TFM learns from are mildly optimistic, because the validation set was used for early stopping and to set the ensemble blend weights. A stricter setup would build the context pool from a held-out slice of training data instead.
