@@ -42,7 +42,7 @@ The existing IEEE-CIS feature set and chronological 70/15/15 split were reused, 
 
 ### What does the TFM see?
 
-In concept, it seemed wise to narrow the features using importance. Hence, each context row has the top 25 features by ensemble SHAP importance, plus the production ensemble score ('prior_score'). As I was building on an existing project, including the score lets the TFM build on the existing model and focus on where it is wrong, so it doesn't have to learn fraud from scratch. To check this, I reran run C without the score (run C_noscore): PR-AUC dropped from 0.627 to 0.583, and decisions were less stable between contexts (4.5% of transactions changed decision vs 3.4%). 
+In concept, it seemed wise to narrow the features using importance. Hence, each context row has the top 25 features by ensemble SHAP importance, plus the production ensemble score ('prior_score'). As I was building on an existing project, including the score lets the TFM build on the existing model and focus on where it is wrong, so it doesn't have to learn fraud from scratch. To check whether this helps, I also ran the TFM without the score (run C_noscore, described below). 
 
 ### Was any additional feature engineering needed?
 
@@ -101,6 +101,10 @@ Yes. With one class-balanced context (run C), PR-AUC on the test set rose from 0
 ### How much did balancing the context matter?
 
 A lot. The random context (run C0) holds only about 340 frauds and reached 0.570. The balanced context of the same size holds 2,000 frauds and reached 0.627. Since the context is the only thing that can be changed, choosing which rows go into it was the biggest lever I found.
+
+### Did including the ensemble score help?
+
+Yes, on both accuracy and stability. Without the score (run C_noscore), PR-AUC dropped from 0.627 to 0.583, and decisions were less stable between contexts (4.5% of test transactions changed decision between seeds, vs 3.4% with the score). The TFM still beat the ensemble without it, but including the score was clearly worth it.
 
 ### Did routing help?
 
