@@ -142,7 +142,7 @@ I took 1,000 test transactions (312 frauds, the 300 transactions ranked closest 
 
 Std cells show the median / 95th percentile of each transaction's standard deviation across the 20 runs, on the corrected score. The flip rate is the share of the 1,000 transactions whose decline decision changed in at least one run.
 
-Across the full test set the flip rate is much lower. Between any two of run C's three seeds, 3.4% of all test transactions change decline decision (about 1,500 of the 8,625 declines) (6.4% of frauds and 3.3% of non-fraud), and the rank correlation between seeds is 0.939 on average. The sample's flip rate is high because 300 of its 1,000 transactions were picked right at the cutoff, where a small change in score changes the decision.
+Across the full test set the flip rate is much lower. Between any two of run C's three seeds, 3.4% of all test transactions change decline decision (about 1,500 of the 8,625 declines; 6.4% of frauds and 3.3% of non-fraud), and the rank correlation between seeds is 0.939 on average. The sample's flip rate is high because 300 of its 1,000 transactions were picked right at the cutoff, where a small change in score changes the decision.
 
 ![Score spread per transaction](../assets/tfm_stability_spread.png)
 
@@ -165,7 +165,7 @@ The table below follows 10 test transactions (5 frauds, 5 non-fraud) through 10 
 
 Raw scores are from a 20% fraud context and are higher than real-world probabilities; ranking is unaffected.
 
-With a fixed context, scores are identical between runs, so in production decisions would only change when the context is refreshed.
+With a fixed context and TabICL seed, scores are identical between runs, so in production decisions would only change when the context is refreshed.
 
 ### What are the caveats?
 
@@ -179,11 +179,16 @@ With a fixed context, scores are identical between runs, so in production decisi
 
 ### What would I try next?
 
-A few ideas came up while working through this that I did not have time to test:
+The stability results changed how I think about the next step. With a fixed context and seed, scores are identical every time. Variability only comes in when the context is rebuilt. That points toward building contexts ahead of time and reusing them.
 
-1. A library of pre-encoded contexts. Each segment's context could be encoded once, saved, and pulled from a library at scoring time, then refreshed on a schedule as new labels mature. This removes the cost of encoding the context, although the model still has to compare each new record against it, so smaller contexts would still matter. Pairing this with the has_identity bank (run D_seg), which already matched the single context at lower cost, seems like the natural place to start.
-2. Pushing the context further toward fraud. Balancing the context from 3.4% to 20% fraud was the biggest gain I found (run C0 to run C). A context at 50% fraud or more, with a smaller sample of non-fraud rows as background, would show whether that gain keeps going or levels off.
-3. Retrieving the most similar records within a segment. Each batch of transactions could pull its nearest labeled neighbors from within its segment, using the top SHAP features to measure similarity, with a bias toward more recent records. This should give the most relevant context, but it costs more, since contexts can no longer be reused across batches. This is the most computationally expensive of the three. 
+1. A library of preselected, pre-encoded contexts organized with a self-organizing map (SOM). A SOM arranges transactions on a grid so that neighboring nodes hold similar transactions. Each transaction maps to its closest node, so every record has a home. Nodes with too few frauds can be merged with their neighbors, which addresses the main problem with the tree regions, where small regions did not have enough fraud to learn from. Each region's context would be selected once, encoded once, and saved. At scoring time a transaction is mapped to its region and scored against that saved context. This should help in two ways:
+   1. Stability: scores stay the same between refreshes, which removes the run to run variation I measured (about 1,500 of 8,625 declines changed between context draws).
+   2. Latency: the context does not need to be encoded on every scoring call.
+
+   The ensemble score would be included in the SOM's inputs, since it improved both accuracy and stability here.
+2. Refreshing the library on a set cadence as new labels mature. Each refresh will shift some scores, and that is expected, since fraud patterns and customer behavior change over time. Starting each refresh from the previous map would keep regions consistent, so most of the change between refreshes reflects new information.
+3. Pushing the context further toward fraud. Balancing the context from 3.4% to 20% fraud was the biggest gain I found (run C0 to run C). A context at 50% fraud or more would show whether that gain keeps going or levels off.
+4. Retrieving the most similar records within a region. Each batch of transactions could pull its nearest labeled neighbors from within its region, using the top SHAP features to measure similarity, with a bias toward more recent records. This should give the most relevant context, but it costs more, since contexts can no longer be reused across batches.
 
 ---
 
