@@ -228,3 +228,6 @@ outputs/
 
 # local planning docs
 docs/tfm_context_plan.md
+
+# exported pdfs of docs
+docs/*.pdf

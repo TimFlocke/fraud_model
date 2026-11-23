@@ -140,6 +140,8 @@ I took 1,000 test transactions (312 frauds, the 300 transactions ranked closest 
 
 Std cells show the median / 95th percentile of each transaction's standard deviation across the 20 runs, on the corrected score. The flip rate is the share of the 1,000 transactions whose decline decision changed in at least one run.
 
+Across the full test set the flip rate is much lower. Between any two of run C's three seeds, 3.4% of all test transactions change decline decision (6.4% of frauds and 3.3% of non-fraud), and the rank correlation between seeds is 0.939 on average. The sample's flip rate is high because 300 of its 1,000 transactions were picked right at the cutoff, where a small change in score changes the decision.
+
 ![Score spread per transaction](../assets/tfm_stability_spread.png)
 
 *Each transaction's standard deviation across 20 runs against its mean score (both log scale), for 20 TabICL seeds on one context (1b) and 20 different contexts (2), with run C's decline cutoff marked.*
