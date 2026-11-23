@@ -42,7 +42,7 @@ The existing IEEE-CIS feature set and chronological 70/15/15 split were reused, 
 
 ### What does the TFM see?
 
-In concept, it seemed wise to narrow the features using importance. Hence, each context row has the top 25 features by ensemble SHAP importance, plus the production ensemble score ('prior_score'). As I was building on an existing project, including the score lets the TFM build on the existing model and focus on where it is wrong, so it doesn't have to learn fraud from scratch. 
+In concept, it seemed wise to narrow the features using importance. Hence, each context row has the top 25 features by ensemble SHAP importance, plus the production ensemble score ('prior_score'). As I was building on an existing project, including the score lets the TFM build on the existing model and focus on where it is wrong, so it doesn't have to learn fraud from scratch. To check this, I reran run C without the score (run C_noscore): PR-AUC dropped from 0.627 to 0.583, and decisions were less stable between contexts (4.5% of transactions changed decision vs 3.4%). 
 
 ### Was any additional feature engineering needed?
 
@@ -59,6 +59,7 @@ Each run changes one thing, so the effect of each choice can be isolated:
 | **A** | The production ensemble score on its own. This is the bar to beat. |
 | **C0** | The TFM with one random 10,000 row context (about 3.4% fraud). |
 | **C** | The TFM with one class-balanced 10,000 row context, set to 20% fraud. With a random sample, the model only sees around 340 frauds; balancing gives it far more fraud patterns to compare against. |
+| **C_noscore** | The same as C, but without the production ensemble score. |
 | **S** | A CatBoost model trained on the validation set with the same 35 inputs. This checks whether any lift comes from the TFM itself, or just from seeing newer labeled data than the ensemble did. |
 | **D** | A 'context bank'. A shallow decision tree on the top 5 features splits the context pool into regions, and each region gets its own context, built ahead of time. At inference, each transaction is routed to its region with a simple lookup and scored against that region's context. |
 | **D_seg** | The same bank, but routed on a simple business segment (has_identity) instead of the tree. |
@@ -82,6 +83,7 @@ The table below shows every run on the test set. For the TFM runs, each number i
 | A | 0.519 | 0.905 | 0.254 | 0.825 | n/a (existing score) |
 | C0 | 0.570 ± 0.005 | 0.920 ± 0.001 | 0.254 ± 0.004 | 0.852 ± 0.003 | 93.7 |
 | C | **0.627 ± 0.002** | 0.932 ± 0.001 | **0.264 ± 0.003** | 0.875 ± 0.003 | 96.5 |
+| C_noscore (C without prior_score) | 0.583 ± 0.006 | 0.914 ± 0.002 | 0.257 ± 0.003 | 0.841 ± 0.008 | 97.2 |
 | S | 0.558 | 0.919 | 0.246 | 0.854 | **3.6** |
 | D | 0.602 ± 0.003 | 0.926 ± 0.002 | 0.258 ± 0.001 | 0.863 ± 0.010 | 97.6 |
 | D_seg | 0.626 ± 0.001 | **0.935 ± 0.000** | 0.262 ± 0.001 | **0.879 ± 0.001** | 79.4 |
@@ -140,7 +142,7 @@ I took 1,000 test transactions (312 frauds, the 300 transactions ranked closest 
 
 Std cells show the median / 95th percentile of each transaction's standard deviation across the 20 runs, on the corrected score. The flip rate is the share of the 1,000 transactions whose decline decision changed in at least one run.
 
-Across the full test set the flip rate is much lower. Between any two of run C's three seeds, 3.4% of all test transactions change decline decision (6.4% of frauds and 3.3% of non-fraud), and the rank correlation between seeds is 0.939 on average. The sample's flip rate is high because 300 of its 1,000 transactions were picked right at the cutoff, where a small change in score changes the decision.
+Across the full test set the flip rate is much lower. Between any two of run C's three seeds, 3.4% of all test transactions change decline decision (about 1,500 of the 8,625 declines) (6.4% of frauds and 3.3% of non-fraud), and the rank correlation between seeds is 0.939 on average. The sample's flip rate is high because 300 of its 1,000 transactions were picked right at the cutoff, where a small change in score changes the decision.
 
 ![Score spread per transaction](../assets/tfm_stability_spread.png)
 
@@ -162,6 +164,8 @@ The table below follows 10 test transactions (5 frauds, 5 non-fraud) through 10 
 | 80792 | 0 | 0.002 | 0.000 | 0.001 | 0.000 | 0.000 | 0.001 | 0.001 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.001 | 0.000 |
 
 Raw scores are from a 20% fraud context and are higher than real-world probabilities; ranking is unaffected.
+
+With a fixed context, scores are identical between runs, so in production decisions would only change when the context is refreshed.
 
 ### What are the caveats?
 
