@@ -144,6 +144,23 @@ Std cells show the median / 95th percentile of each transaction's standard devia
 
 *Each transaction's standard deviation across 20 runs against its mean score (both log scale), for 20 TabICL seeds on one context (1b) and 20 different contexts (2), with run C's decline cutoff marked.*
 
+The table below follows 10 test transactions (5 frauds, 5 non-fraud) through 10 runs, each with a new balanced context and the TabICL seed set to the run number. Clear cases barely move and borderline ones swing more (fraud 28577 ranges from 0.410 to 0.752), and in every run all 5 frauds scored above all 5 non-fraud.
+
+| Record id | Label (1 = fraud) | prior_score | Seed 0 | Seed 1 | Seed 2 | Seed 3 | Seed 4 | Seed 5 | Seed 6 | Seed 7 | Seed 8 | Seed 9 | Mean | Min | Max | Std |
+|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| 28577 | 1 | 0.578 | 0.657 | 0.749 | 0.700 | 0.538 | 0.607 | 0.746 | 0.631 | 0.410 | 0.613 | 0.752 | 0.640 | 0.410 | 0.752 | 0.102 |
+| 31726 | 1 | 0.173 | 0.105 | 0.132 | 0.087 | 0.040 | 0.118 | 0.084 | 0.052 | 0.066 | 0.083 | 0.146 | 0.091 | 0.040 | 0.146 | 0.032 |
+| 50113 | 1 | 0.957 | 0.992 | 0.991 | 0.983 | 0.997 | 0.995 | 0.989 | 0.986 | 0.994 | 0.993 | 0.995 | 0.992 | 0.983 | 0.997 | 0.004 |
+| 61446 | 1 | 0.858 | 0.969 | 0.989 | 0.987 | 0.965 | 0.991 | 0.986 | 0.993 | 0.988 | 0.986 | 0.991 | 0.984 | 0.965 | 0.993 | 0.009 |
+| 76777 | 1 | 0.992 | 0.976 | 0.992 | 0.986 | 0.986 | 0.988 | 0.993 | 0.984 | 0.986 | 0.995 | 0.992 | 0.988 | 0.976 | 0.995 | 0.005 |
+| 44412 | 0 | 0.109 | 0.032 | 0.043 | 0.025 | 0.025 | 0.033 | 0.028 | 0.033 | 0.034 | 0.025 | 0.029 | 0.031 | 0.025 | 0.043 | 0.005 |
+| 53591 | 0 | 0.031 | 0.012 | 0.013 | 0.010 | 0.010 | 0.011 | 0.014 | 0.016 | 0.015 | 0.016 | 0.008 | 0.013 | 0.008 | 0.016 | 0.003 |
+| 57400 | 0 | 0.009 | 0.003 | 0.001 | 0.003 | 0.002 | 0.006 | 0.002 | 0.001 | 0.003 | 0.012 | 0.004 | 0.004 | 0.001 | 0.012 | 0.003 |
+| 71935 | 0 | 0.019 | 0.008 | 0.010 | 0.008 | 0.009 | 0.008 | 0.013 | 0.010 | 0.011 | 0.006 | 0.011 | 0.009 | 0.006 | 0.013 | 0.002 |
+| 80792 | 0 | 0.002 | 0.000 | 0.001 | 0.000 | 0.000 | 0.001 | 0.001 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.001 | 0.000 |
+
+Raw scores are from a 20% fraud context and are higher than real-world probabilities; ranking is unaffected.
+
 ### What are the caveats?
 
 1. The validation scores the TFM learns from are mildly optimistic, because the validation set was used for early stopping and to set the ensemble blend weights. A stricter setup would build the context pool from a held-out slice of training data instead.
